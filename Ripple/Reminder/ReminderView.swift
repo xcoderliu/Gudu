@@ -17,7 +17,7 @@ struct ReminderView: View {
                         Text("R I P P L E").font(.system(size: 10, weight: .medium)).opacity(0.45)
                         Spacer()
                         if session.isPreview {
-                            Text("动画预览 · 不计入饮水记录")
+                            Text(session.requiresVerification ? "识别测试 · 不计入饮水记录" : "动画预览 · 不计入饮水记录")
                                 .font(.system(size: 11)).foregroundStyle(.white.opacity(0.55))
                                 .padding(.trailing, 18)
                         }
@@ -35,7 +35,8 @@ struct ReminderView: View {
 
                     VStack(spacing: 0) {
                         ZStack {
-                            DrinkingRitualScene(startedAt: session.startedAt, character: session.character).frame(width: 800, height: 360)
+                            DrinkingRitualScene(startedAt: session.startedAt, character: session.character)
+                                .frame(width: 800, height: session.requiresVerification ? 255 : 360)
                                 .opacity(session.completed ? 0.15 : 1)
                             if session.completed {
                                 Image(systemName: "checkmark")
@@ -54,12 +55,16 @@ struct ReminderView: View {
                         Group {
                             if session.completed {
                                 Text(session.isPreview ? "准备好了，就把这份温柔带回日常。" : "这一杯，已记入今天的小小成就。")
-                            } else { RitualCaption(startedAt: session.startedAt) }
+                            } else if session.requiresVerification { Text("杯子靠近嘴边，就给自己这一刻的照顾。") }
+                            else { RitualCaption(startedAt: session.startedAt) }
                         }
                             .font(.system(size: 14)).tracking(1)
                             .foregroundStyle(Palette.mint.opacity(0.52))
                             .padding(.top, 17)
-                        HStack(spacing: 14) {
+                        if session.requiresVerification {
+                            CameraVerificationPanel(camera: session.camera).frame(width: 620).padding(.top, 22)
+                                .opacity(session.completed ? 0 : 1).disabled(session.completed)
+                        } else { HStack(spacing: 14) {
                             Button { onAction(.drank) } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: "checkmark")
@@ -86,15 +91,22 @@ struct ReminderView: View {
                         .padding(.top, 34)
                         .opacity(session.completed ? 0 : 1)
                         .disabled(session.completed)
+                        }
                     }
                     .scaleEffect(scale)
                     .frame(height: 625 * scale)
                     Spacer(minLength: 0)
                     TimelineView(.periodic(from: .now, by: 1)) { timeline in
                         HStack(spacing: 8) {
-                            Text("ESC 关闭")
-                            Text("·")
-                            Text("↵ \(session.isPreview ? "完成预览" : "记一杯")")
+                            if session.requiresVerification && !session.isPreview {
+                                Text(session.isHoldingEscape ? "继续按住 Esc，即将退出（本次不记水）" : "识别后自动完成 · 长按 ESC 2 秒紧急退出（不记水）")
+                            } else {
+                                Text("ESC 关闭")
+                                if !session.requiresVerification {
+                                    Text("·")
+                                    Text("↵ \(session.isPreview ? "完成预览" : "记一杯")")
+                                }
+                            }
                             if let deadline = session.deadline {
                                 Text("·")
                                 Text("\(max(0, Int(ceil(deadline.timeIntervalSince(timeline.date))))) 秒后轻轻退场")
@@ -105,6 +117,22 @@ struct ReminderView: View {
                         .foregroundStyle(Palette.mint.opacity(0.35))
                     }
                     .padding(.bottom, 28)
+                }
+                if session.askToExit {
+                    Color.black.opacity(0.55).ignoresSafeArea()
+                    VStack(spacing: 18) {
+                        Text("退出本次检测？").font(.system(size: 20, weight: .medium))
+                        Text("本次不会记入饮水记录。下次仍会按你的设置提醒。")
+                            .font(.system(size: 12)).foregroundStyle(Palette.mint.opacity(0.65))
+                        HStack(spacing: 18) {
+                            Button("继续检测") { session.askToExit = false }
+                            Button("退出本次，不记水") { onAction(.emergencyExit) }
+                        }
+                        .buttonStyle(FilledButtonStyle())
+                    }
+                    .padding(32).foregroundStyle(Palette.mint)
+                    .background(Palette.ocean, in: RoundedRectangle(cornerRadius: 20))
+                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Palette.mint.opacity(0.2), lineWidth: 1))
                 }
             }
         }

@@ -17,6 +17,7 @@ A native macOS water reminder with configurable intervals, daily hours, a menu-b
 - Optional synchronized pouring, gulping, and sigh sound effects, synthesized offline. Multiple displays share one audio player.
 - Pointer-display targeting, an explicit all-display mode, and an all-display fallback when no display matches the pointer.
 - Drink confirmation, five-minute snooze, Escape to dismiss, and optional automatic dismissal.
+- Optional experimental camera verification: Apple Vision classifies vessels only near the mouth. A stable detection for about one second completes a reminder; no lowering gesture is required.
 - Menu-bar access even after closing the dashboard.
 - Daily intake, configurable serving size and goal, and undo for the most recent drink.
 - No overdue reminder bursts after sleep or lock; the interval restarts when the session becomes available.
@@ -49,6 +50,14 @@ Previewing the animation neither records water nor changes the schedule. Confirm
 **⌘D** records a drink from the dashboard, **⌘P** previews, **Return** confirms a reminder, and **Esc** dismisses it. These shortcuts work while the appropriate Ripple interface has keyboard focus; no global shortcuts are registered.
 
 For launch at login, copy the built app to Applications first. The system may require approval in System Settings → General → Login Items.
+
+### Camera verification
+
+Enable “强制检测喝水” in settings, or try “测试摄像头识别（不记水）” first. macOS asks for camera permission. Verification runs only during a forced reminder or an explicit recognition test; ordinary animation previews never start the camera. Frames remain in local memory and are neither saved nor uploaded.
+
+Forced reminders disable manual confirmation, Return-to-record, snooze, and automatic dismissal. Hold Escape for two seconds for an unrecorded emergency exit, or use the close button and confirm. Camera errors offer retry and exit. The test mode never records water.
+
+This detects a vessel in the mouth region, not swallowing or actual intake volume. Recorded water uses the configured serving size. The feature is currently off by default and needs real-device accuracy validation. See [camera verification](docs/CAMERA_VERIFICATION.md).
 
 ## Source layout
 

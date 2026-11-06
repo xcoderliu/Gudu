@@ -13,6 +13,8 @@ struct AppModelSmokeTest {
         let settings = ReminderSettings(intervalMinutes: 1, startMinute: 0, endMinute: 0)
         defaults.set(try JSONEncoder().encode(settings), forKey: "reminderSettings")
         let model = AppModel(defaults: defaults)
+        var disabledVerification = false
+        model.onVerificationDisabled = { disabledVerification = true }
         var fired = false
         model.onPresentReminder = { preview in
             if preview { model.finishReminder(.dismiss, preview: true) }
@@ -27,6 +29,10 @@ struct AppModelSmokeTest {
                 throw NSError(domain: "RippleSmoke", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
             }
         }
+
+        model.settings.requireDrinkVerification = true
+        model.settings.requireDrinkVerification = false
+        try expect(disabledVerification, "Disabling verification did not request camera cleanup")
 
         let before = model.nextReminder
         model.preview()
@@ -49,6 +55,6 @@ struct AppModelSmokeTest {
         try expect(remaining > 298 && remaining <= 301, "Snooze did not schedule five minutes")
         model.toggleEnabled()
         try expect(!model.settings.isEnabled && model.nextReminder == nil, "Pause left a pending reminder")
-        print("PASS: preview, record/undo, real timer trigger, five-minute snooze, and pause")
+        print("PASS: verification opt-out cleanup, preview, record/undo, real timer trigger, five-minute snooze, and pause")
     }
 }

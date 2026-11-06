@@ -26,6 +26,7 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
     public var servingML: Int
     public var dailyGoalML: Int
     public var character: ReminderCharacter
+    public var requireDrinkVerification: Bool
 
     public init(
         intervalMinutes: Int = 45,
@@ -37,7 +38,8 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         autoDismissSeconds: Int = 30,
         servingML: Int = 250,
         dailyGoalML: Int = 2000,
-        character: ReminderCharacter = .neutral
+        character: ReminderCharacter = .neutral,
+        requireDrinkVerification: Bool = false
     ) {
         self.intervalMinutes = intervalMinutes
         self.startMinute = startMinute
@@ -49,12 +51,13 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         self.servingML = servingML
         self.dailyGoalML = dailyGoalML
         self.character = character
+        self.requireDrinkVerification = requireDrinkVerification
         normalize()
     }
 
     private enum CodingKeys: String, CodingKey {
         case intervalMinutes, startMinute, endMinute, isEnabled, displayMode
-        case soundEnabled, autoDismissSeconds, servingML, dailyGoalML, character
+        case soundEnabled, autoDismissSeconds, servingML, dailyGoalML, character, requireDrinkVerification
     }
 
     public init(from decoder: Decoder) throws {
@@ -69,7 +72,8 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
             autoDismissSeconds: try values.decodeIfPresent(Int.self, forKey: .autoDismissSeconds) ?? 30,
             servingML: try values.decodeIfPresent(Int.self, forKey: .servingML) ?? 250,
             dailyGoalML: try values.decodeIfPresent(Int.self, forKey: .dailyGoalML) ?? 2000,
-            character: try values.decodeIfPresent(ReminderCharacter.self, forKey: .character) ?? .neutral
+            character: try values.decodeIfPresent(ReminderCharacter.self, forKey: .character) ?? .neutral,
+            requireDrinkVerification: try values.decodeIfPresent(Bool.self, forKey: .requireDrinkVerification) ?? false
         )
     }
 

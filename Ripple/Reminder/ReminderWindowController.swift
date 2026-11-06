@@ -10,13 +10,22 @@ final class ReminderSession: ObservableObject {
     let deadline: Date?
     let startedAt = Date()
     let character: ReminderCharacter
+    let completionGate: ReminderCompletionGate
+    let camera = DrinkCameraVerifier()
     @Published var completed = false
+    @Published var verificationPassed = false
+    @Published var askToExit = false
+    @Published var isHoldingEscape = false
+    var requiresVerification: Bool { completionGate.requiresVerification }
 
-    init(preview: Bool, servingML: Int, seconds: Int, character: ReminderCharacter = .neutral) {
+    init(preview: Bool, servingML: Int, seconds: Int, character: ReminderCharacter = .neutral,
+         requiresVerification: Bool = false) {
         isPreview = preview
         self.servingML = servingML
         self.character = character
-        deadline = seconds > 0 ? Date().addingTimeInterval(Double(seconds)) : nil
+        let gate = ReminderCompletionGate(requiresVerification: requiresVerification)
+        completionGate = gate
+        deadline = seconds > 0 && gate.allowsAutoDismiss ? Date().addingTimeInterval(Double(seconds)) : nil
     }
 }
 
@@ -32,6 +41,7 @@ final class ReminderWindowController {
     private var finishing = false
     private var closing = false
     private var audioPlayer: AVAudioPlayer?
+    private var escapeTask: Task<Void, Never>?
 
     init(model: AppModel) {
         self.model = model
@@ -42,7 +52,7 @@ final class ReminderWindowController {
         }
     }
 
-    func present(preview: Bool) {
+    func present(preview: Bool, testVerification: Bool = false) {
         guard panels.isEmpty else { return }
         let screens = NSScreen.screens
         let cursor = NSEvent.mouseLocation
@@ -52,7 +62,8 @@ final class ReminderWindowController {
             return
         }
         let session = ReminderSession(preview: preview, servingML: model.settings.servingML,
-                                      seconds: model.settings.autoDismissSeconds, character: model.settings.character)
+                                      seconds: model.settings.autoDismissSeconds, character: model.settings.character,
+                                      requiresVerification: testVerification || (!preview && model.settings.requireDrinkVerification))
         self.session = session
         finishing = false
         closing = false
@@ -89,17 +100,31 @@ final class ReminderWindowController {
             panels.forEach { $0.animator().alphaValue = 1 }
         }
 
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self, !self.panels.isEmpty else { return event }
-            if event.keyCode == 53 { self.handle(.dismiss); return nil }
-            if event.keyCode == 36 || event.keyCode == 76 { self.handle(.drank); return nil }
+            if event.keyCode == 53 { self.handleEscape(event); return nil }
+            if event.type == .keyDown && (event.keyCode == 36 || event.keyCode == 76) {
+                self.handle(.drank); return nil
+            }
             return event
         }
         if model.settings.soundEnabled {
             let still = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-            playSound(still ? "Satisfied" : "HydrationRitual", loop: !still)
+            playSound(still ? "Satisfied" : "HydrationRitual", loop: !still && !session.requiresVerification)
         }
-        if model.settings.autoDismissSeconds > 0 {
+        if session.requiresVerification {
+            session.camera.onPermissionPrompt = { [weak self] prompting in
+                // A screen-saver-level overlay must not cover the macOS consent alert.
+                self?.panels.forEach { $0.level = prompting ? .normal : .screenSaver }
+                if prompting { NSApp.activate(ignoringOtherApps: true) }
+            }
+            session.camera.onVerified = { [weak self, weak session] in
+                guard let self, let session, self.session === session else { return }
+                session.verificationPassed = true
+                self.handle(.drank)
+            }
+            session.camera.start()
+        } else if session.completionGate.allowsAutoDismiss && model.settings.autoDismissSeconds > 0 {
             let seconds = model.settings.autoDismissSeconds
             autoDismissTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(seconds))
@@ -110,12 +135,19 @@ final class ReminderWindowController {
     }
 
     private func handle(_ action: ReminderAction) {
-        guard !finishing, !closing else { return }
+        guard let session, !finishing, !closing else { return }
+        if case .dismiss = action, session.requiresVerification && !session.isPreview {
+            session.askToExit = true
+            return
+        }
+        if case .snooze = action, !session.completionGate.allowsSnooze { return }
         if case .drank = action {
+            guard session.completionGate.allowsCompletion(verified: session.verificationPassed) else { return }
             finishing = true
             autoDismissTask?.cancel()
+            session.camera.stop(keepState: true)
             if model.settings.soundEnabled { playSound("Satisfied") }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { session?.completed = true }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { session.completed = true }
             completionTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(900))
                 guard !Task.isCancelled else { return }
@@ -129,6 +161,9 @@ final class ReminderWindowController {
         closing = true
         autoDismissTask?.cancel()
         completionTask?.cancel()
+        escapeTask?.cancel()
+        escapeTask = nil
+        session.camera.stop()
         audioPlayer?.stop()
         audioPlayer = nil
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor); self.keyMonitor = nil }
@@ -144,6 +179,30 @@ final class ReminderWindowController {
                 self?.finishing = false
                 self?.closing = false
                 self?.model.finishReminder(action, preview: session.isPreview)
+            }
+        }
+    }
+
+    func shutdown() { session?.camera.stop(); escapeTask?.cancel() }
+
+    func cancelVerification() {
+        if session?.requiresVerification == true { dismiss(action: .emergencyExit) }
+    }
+
+    private func handleEscape(_ event: NSEvent) {
+        guard let session else { return }
+        guard session.requiresVerification && !session.isPreview else {
+            if event.type == .keyDown { handle(.dismiss) }
+            return
+        }
+        if event.type == .keyUp {
+            escapeTask?.cancel(); escapeTask = nil; session.isHoldingEscape = false
+        } else if !event.isARepeat && escapeTask == nil {
+            session.isHoldingEscape = true
+            escapeTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                self?.dismiss(action: .emergencyExit)
             }
         }
     }

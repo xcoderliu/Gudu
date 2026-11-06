@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
         didSet {
             saveSettings()
             if !settings.hasSameSchedule(as: oldValue) { reschedule() }
+            if oldValue.requireDrinkVerification && !settings.requireDrinkVerification { onVerificationDisabled?() }
         }
     }
     @Published private(set) var entries: [HydrationEntry]
@@ -22,6 +23,8 @@ final class AppModel: ObservableObject {
 
     var onPresentReminder: ((_ preview: Bool) -> Void)?
     var onDismissReminder: (() -> Void)?
+    var onTestVerification: (() -> Void)?
+    var onVerificationDisabled: (() -> Void)?
 
     private let defaults: UserDefaults
     private var timer: Timer?
@@ -106,13 +109,19 @@ final class AppModel: ObservableObject {
 
     func remindNow() { present(preview: false) }
 
+    func testDrinkVerification() {
+        guard !isPresenting, !isScreenUnavailable, let onTestVerification else { return }
+        isPresenting = true
+        onTestVerification()
+    }
+
     func finishReminder(_ action: ReminderAction, preview: Bool) {
         isPresenting = false
         guard !preview else { return }
         switch action {
         case .drank: recordDrink()
         case .snooze: reschedule(delay: 5 * 60)
-        case .dismiss: reschedule()
+        case .dismiss, .emergencyExit: reschedule()
         }
     }
 
@@ -218,4 +227,4 @@ final class AppModel: ObservableObject {
     }
 }
 
-enum ReminderAction { case drank, snooze, dismiss }
+enum ReminderAction { case drank, snooze, dismiss, emergencyExit }

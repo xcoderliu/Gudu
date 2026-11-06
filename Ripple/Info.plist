@@ -18,5 +18,6 @@
     <key>NSSupportsAutomaticTermination</key><false/>
     <key>NSSupportsSuddenTermination</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSCameraUsageDescription</key><string>澄水仅在你开启强制检测或测试识别时使用摄像头，在本机判断杯子是否靠近嘴边；画面不会保存或上传。</string>
 </dict>
 </plist>

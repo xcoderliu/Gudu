@@ -75,15 +75,29 @@ struct SettingsView: View {
             }
             Card {
                 VStack(alignment: .leading, spacing: 21) {
+                    SectionHeading(title: "杯子到嘴边，再继续", subtitle: "实验功能：检测杯子靠近嘴边，不判断是否真正吞咽。")
+                    SettingsRow(title: "强制检测喝水", detail: "提醒时使用摄像头；杯子靠近嘴边约 1 秒后自动完成。") {
+                        Toggle("强制检测喝水", isOn: $model.settings.requireDrinkVerification)
+                            .labelsHidden().toggleStyle(.switch).tint(Palette.accent)
+                    }
+                    Text("画面仅在本机分析，不保存、不上传。开启后不自动退场，也不能点击或按回车记一杯；识别失败时可紧急退出，本次不记水。")
+                        .font(.system(size: 10)).foregroundStyle(Palette.secondary).fixedSize(horizontal: false, vertical: true)
+                    Button { model.testDrinkVerification() } label: {
+                        Label("测试摄像头识别（不记水）", systemImage: "camera")
+                    }.buttonStyle(FilledButtonStyle(prominent: false))
+                }
+            }
+            Card {
+                VStack(alignment: .leading, spacing: 21) {
                     SectionHeading(title: "再加一点贴心")
-                    SettingsRow(title: "自动退场", detail: "自动关闭不会记录饮水；按 Esc 也可以随时关闭。") {
+                    SettingsRow(title: "自动退场", detail: model.settings.requireDrinkVerification ? "强制检测开启时，自动退场不生效。" : "自动关闭不会记录饮水；按 Esc 也可以随时关闭。") {
                         Picker("自动退场", selection: $model.settings.autoDismissSeconds) {
                             Text("15 秒").tag(15)
                             Text("30 秒").tag(30)
                             Text("60 秒").tag(60)
                             Text("不自动关闭").tag(0)
                         }
-                        .labelsHidden().frame(width: 125)
+                        .labelsHidden().frame(width: 125).disabled(model.settings.requireDrinkVerification)
                     }
                     Divider()
                     SettingsRow(title: "喝水音效", detail: "跟随动画播放接水、咕嘟喝水与轻轻舒气的声音。") {

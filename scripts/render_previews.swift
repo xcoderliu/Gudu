@@ -49,7 +49,10 @@ struct PreviewRenderer {
                    size: NSSize(width: 1440, height: 900), name: "reminder.png")
         try export(SettingsView(model: model).padding(30).frame(width: 800)
             .background(Palette.background).preferredColorScheme(.light),
-                   size: NSSize(width: 800, height: 1440), name: "settings.png")
+                   size: NSSize(width: 800, height: 1720), name: "settings.png")
+        let verification = ReminderSession(preview: true, servingML: 250, seconds: 30, requiresVerification: true)
+        try export(ReminderView(session: verification, onAction: { _ in }).frame(width: 1440, height: 900),
+                   size: NSSize(width: 1440, height: 900), name: "camera-verification.png")
         let characters = HStack(spacing: 0) {
             ForEach(ReminderCharacter.allCases) { character in
                 VStack(spacing: 8) {

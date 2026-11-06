@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         overlay = ReminderWindowController(model: model)
         model.onPresentReminder = { [weak self] preview in self?.overlay.present(preview: preview) }
         model.onDismissReminder = { [weak self] in self?.overlay.dismiss(action: .dismiss) }
+        model.onTestVerification = { [weak self] in self?.overlay.present(preview: true, testVerification: true) }
+        model.onVerificationDisabled = { [weak self] in self?.overlay.cancelVerification() }
         buildStatusItem()
         model.$now.sink { [weak self] _ in self?.updateStatusTooltip() }.store(in: &subscriptions)
         model.$settings.sink { [weak self] _ in
@@ -32,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationWillTerminate(_ notification: Notification) { overlay?.shutdown() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showMainWindow()

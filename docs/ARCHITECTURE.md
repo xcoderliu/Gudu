@@ -2,7 +2,7 @@
 
 ## 应用边界
 
-澄水是 SwiftUI + AppKit 原生 macOS 应用，无服务器、无网络层、无第三方动画引擎。SwiftUI 负责界面与矢量绘制，AppKit 负责菜单栏和跨显示器提醒窗口，`RippleCore` 负责可测试的计算。
+澄水是 SwiftUI + AppKit 原生 macOS 应用，无服务器、无网络层、无第三方动画引擎。SwiftUI 负责界面与矢量绘制，AppKit 负责菜单栏和跨显示器提醒窗口，AVFoundation / Vision 负责可选的本机摄像头识别，`RippleCore` 负责可测试的计算。
 
 ```text
 RippleApp
@@ -15,6 +15,7 @@ RippleApp
        ├─ NSStatusItem / NSMenu
        └─ ReminderWindowController
             ├─ ScreenRouter       纯屏幕坐标路由
+            ├─ DrinkCameraVerifier ─ CupCameraWorker ─ AVFoundation / Vision
             └─ ReminderPanel × N
                  └─ ReminderView ─ DrinkingRitualScene
                       └─ shared ReminderSession
@@ -23,6 +24,8 @@ RippleApp
 ## 状态与计时
 
 `AppModel` 是主 actor 的 ObservableObject，持有偏好、饮水记录、当前时间、下一次提醒与当前展示状态。设置变更自动保存；只有间隔、起止时间、启用状态改变才重算计划。音效、人物、屏幕模式、容量等变更不会重置倒计时。
+
+摄像头检测开关在下次正式提醒生效；关闭时会立即中止当前检测。强制模式的 Session 通过 `ReminderCompletionGate` 拦截手动确认、回车、延后和自动关闭，只有识别完成才记水；紧急退出和系统会话变化不记水。测试模式与普通动画预览分开，避免预览动画时意外申请摄像头。识别方案、权限和限制见 [CAMERA_VERIFICATION.md](CAMERA_VERIFICATION.md)。
 
 一个加入主 run loop common mode 的 1 秒 Timer 更新倒计时并判断是否到期。计划以绝对 `Date` 保存，避免按 tick 次数累加引起漂移。展示期间不重复打开提醒。出现大于 90 秒的 tick 空档或明显倒退时，重新计算下一次提醒。
 

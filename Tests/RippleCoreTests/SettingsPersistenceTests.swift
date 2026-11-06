@@ -13,6 +13,7 @@ final class SettingsPersistenceTests: XCTestCase {
         XCTAssertTrue(settings.soundEnabled)
         XCTAssertFalse(settings.isEnabled)
         XCTAssertEqual(settings.servingML, 300)
+        XCTAssertFalse(settings.requireDrinkVerification)
     }
 
     func testEveryCharacterRoundTripsAndDoesNotResetSchedule() throws {
@@ -31,5 +32,14 @@ final class SettingsPersistenceTests: XCTestCase {
         XCTAssertEqual(settings.intervalMinutes, 1)
         XCTAssertEqual(settings.character, .woman)
         XCTAssertEqual(settings.dailyGoalML, 2000)
+    }
+
+    func testCameraPreferenceRoundTripsWithoutResettingSchedule() throws {
+        var settings = ReminderSettings(intervalMinutes: 30)
+        let before = settings
+        settings.requireDrinkVerification = true
+        XCTAssertTrue(settings.hasSameSchedule(as: before))
+        let restored = try JSONDecoder().decode(ReminderSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertTrue(restored.requireDrinkVerification)
     }
 }

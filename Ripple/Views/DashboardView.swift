@@ -276,6 +276,7 @@ struct DashboardView: View {
                     SectionHeading(title: "简单一点，刚刚好。")
                     aboutFact("network.slash", "完全离线", "无需账号，也没有广告与追踪。")
                     aboutFact("lock.shield", "只留在本机", "提醒偏好与最近 90 天饮水记录保存在这台 Mac。")
+                    aboutFact("camera", "可选摄像头识别", "仅在强制检测或识别测试时使用，不保存或上传画面。")
                     aboutFact("sparkles", "温柔的提醒", "自适应矢量动画；开启系统「减少动态效果」时静态呈现。")
                     aboutFact("heart", "按自己的节奏", "饮水目标由你决定。关闭窗口后，菜单栏里的小水滴会继续陪伴。")
                 }
