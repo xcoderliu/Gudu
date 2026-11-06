@@ -44,6 +44,13 @@ final class DrinkingBodyPoseTests: XCTestCase {
         XCTAssertGreaterThan(tilted.wrist.y - tilted.cupCenter.y, upright.wrist.y - upright.cupCenter.y)
     }
 
+    func testCupRimMeetsTheBeanMouthThroughoutTheFullSip() {
+        for frame in 426...528 {
+            let pose = DrinkingBodyPose(timeline: DrinkingTimeline(elapsed: Double(frame) / 60))
+            XCTAssertEqual(distance(pose.cupLip, pose.mouth), 0, accuracy: 0.0001)
+        }
+    }
+
     func testElbowDoesNotJumpWhenReachingLiftingOrLowering() {
         var previous = DrinkingBodyPose(timeline: DrinkingTimeline(elapsed: 0))
         for frame in 1..<1800 {

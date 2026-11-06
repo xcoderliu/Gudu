@@ -78,6 +78,24 @@ struct MotionRenderer {
         try contactBitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("pickup-frames.png"))
         print("Rendered \(gifURL.path) and pickup-frames.png")
 
+        let beanURL = output.appendingPathComponent("bean-ritual.gif")
+        guard let bean = CGImageDestinationCreateWithURL(beanURL as CFURL, UTType.gif.identifier as CFString, 180, nil) else {
+            throw NSError(domain: "RippleMotion", code: 8)
+        }
+        CGImageDestinationSetProperties(bean, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+        for frame in 0..<180 {
+            let scene = DrinkingRitualScene(startedAt: .now, snapshotTime: Double(frame) / 12)
+                .frame(width: size.width, height: size.height).background(Palette.ocean).id(frame)
+            let bitmap = try render(scene, size: size)
+            guard let image = bitmap.cgImage else { throw NSError(domain: "RippleMotion", code: 9) }
+            CGImageDestinationAddImage(bean, image, [kCGImagePropertyGIFDictionary: [
+                kCGImagePropertyGIFDelayTime: 1.0 / 12,
+                kCGImagePropertyGIFUnclampedDelayTime: 1.0 / 12
+            ]] as CFDictionary)
+        }
+        guard CGImageDestinationFinalize(bean) else { throw NSError(domain: "RippleMotion", code: 10) }
+        print("Rendered bean-ritual.gif")
+
         let confettiSize = NSSize(width: 960, height: 600)
         let confettiURL = output.appendingPathComponent("confetti-motion.gif")
         guard let confetti = CGImageDestinationCreateWithURL(confettiURL as CFURL, UTType.gif.identifier as CFString, 72, nil) else {

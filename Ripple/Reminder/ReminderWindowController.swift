@@ -9,7 +9,6 @@ final class ReminderSession: ObservableObject {
     let servingML: Int
     let deadline: Date?
     let startedAt = Date()
-    let character: ReminderCharacter
     let completionGate: ReminderCompletionGate
     let camera = DrinkCameraVerifier()
     @Published var completed = false
@@ -18,11 +17,10 @@ final class ReminderSession: ObservableObject {
     @Published var isHoldingEscape = false
     var requiresVerification: Bool { completionGate.requiresVerification }
 
-    init(preview: Bool, servingML: Int, seconds: Int, character: ReminderCharacter = .neutral,
+    init(preview: Bool, servingML: Int, seconds: Int,
          requiresVerification: Bool = false) {
         isPreview = preview
         self.servingML = servingML
-        self.character = character
         let gate = ReminderCompletionGate(requiresVerification: requiresVerification)
         completionGate = gate
         deadline = seconds > 0 && gate.allowsAutoDismiss ? Date().addingTimeInterval(Double(seconds)) : nil
@@ -67,7 +65,7 @@ final class ReminderWindowController {
             return
         }
         let session = ReminderSession(preview: preview, servingML: model.settings.servingML,
-                                      seconds: model.settings.autoDismissSeconds, character: model.settings.character,
+                                      seconds: model.settings.autoDismissSeconds,
                                       requiresVerification: testVerification || (!preview && model.settings.requireDrinkVerification))
         self.session = session
         finishing = false

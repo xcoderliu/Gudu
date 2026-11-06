@@ -105,7 +105,7 @@ python3 scripts/make_sounds.py
 
 可以给脚本传入输出目录，例如 `./scripts/render_previews.sh "$PWD/.local/previews"`，避免覆盖文档插图。`camera-diagnostics.png` 使用虚构分数展示测试页的诊断组件，不包含真实摄像头画面或实测识别结果。
 
-检查拿杯动作与撒花，可执行 `./scripts/render_motion.sh`，在 `.local/` 导出 `pickup-motion.gif`、拿杯六帧对照图、`confetti-motion.gif`、透明撒花 PNG 与减少动态效果的静态提示 PNG。撒花 GIF 的渐变背景仅用于展示透明叠加效果，不是桌面截图。它们直接使用应用的矢量代码渲染，属于开发用配图，不会被打包为应用动画。
+检查豆豆小人的完整动作、拿杯与撒花，可执行 `./scripts/render_motion.sh`，在 `.local/` 导出 15 秒的 `bean-ritual.gif`、`pickup-motion.gif`、拿杯六帧对照图、`confetti-motion.gif`、透明撒花 PNG 与减少动态效果的静态提示 PNG。撒花 GIF 的渐变背景仅用于展示透明叠加效果，不是桌面截图。它们直接使用应用的矢量代码渲染，属于开发用配图，不会被打包为应用动画。
 
 ## 开发约定
 

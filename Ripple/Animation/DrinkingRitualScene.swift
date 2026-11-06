@@ -7,7 +7,6 @@ struct DrinkingRitualScene: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.rippleStaticAnimation) private var staticAnimation
     let startedAt: Date
-    var character: ReminderCharacter = .neutral
     var snapshotTime: TimeInterval? = nil
 
     var body: some View {
@@ -21,12 +20,12 @@ struct DrinkingRitualScene: View {
                 drawStage(context, pose: pose)
             }
         }
-        .accessibilityLabel("人物在开放式厨房的直饮净水龙头下接水，拿起杯子喝水，放下后微笑舒气")
+        .accessibilityLabel("豆豆小人在开放式厨房接水，拿起杯子喝水，放低杯子后微笑舒气")
         .accessibilityAddTraits(.isImage)
     }
 
     private let cream = Color(hex: 0xE8EEDC)
-    private let skin = Color(hex: 0xE9BB96)
+    private let bean = Color(hex: 0xC8EFDC)
     private let dark = Color(hex: 0x183D3B)
 
     private func drawStage(_ context: GraphicsContext, pose: DrinkingTimeline) {
@@ -46,9 +45,9 @@ struct DrinkingRitualScene: View {
         drawKitchen(scene, pose: pose)
 
         let body = DrinkingBodyPose(timeline: pose)
-        drawPerson(scene, body: body, pose: pose)
+        drawMascot(scene, body: body, pose: pose)
         drawCup(scene, center: body.cupCenter, pose: pose)
-        drawFingers(scene, body: body, pose: pose)
+        drawGrip(scene, body: body, pose: pose)
 
         // Water from the spout is above the glass, with tiny splash droplets.
         if pose.stream > 0 {
@@ -68,7 +67,7 @@ struct DrinkingRitualScene: View {
                                   with: .color(Palette.mint.opacity(1 - p)))
             }
         }
-        if pose.relaxed > 0 { drawRelief(scene, x: Double(body.positionX), pose: pose) }
+        if pose.relaxed > 0 { drawRelief(scene, body: body, pose: pose) }
     }
 
     private func drawKitchen(_ context: GraphicsContext, pose: DrinkingTimeline) {
@@ -125,114 +124,99 @@ struct DrinkingRitualScene: View {
         label(context, "FILTERED · 净水直饮", at: CGPoint(x: 290, y: 414), size: 9, color: Palette.mint.opacity(0.4))
     }
 
-    private func drawPerson(_ context: GraphicsContext, body: DrinkingBodyPose, pose: DrinkingTimeline) {
-        let x = Double(body.positionX)
-        let sway = Double(body.sway)
-        let leftFoot = Double(body.stride)
-        let sweater: Color = switch character {
-        case .neutral: Color(hex: 0x93BFA5)
-        case .woman: Color(hex: 0xC0B7D5)
-        case .man: Color(hex: 0x91B4C4)
+    private func drawMascot(_ context: GraphicsContext, body: DrinkingBodyPose, pose: DrinkingTimeline) {
+        let x = body.positionX
+        let sway = body.sway
+        let step = body.stride * 0.5
+        context.fill(Path(ellipseIn: CGRect(x: x - 65, y: 374, width: 130, height: 14)), with: .color(.black.opacity(0.13)))
+
+        // Short, rounded feet, with no shoes or clothing. Their upper edges
+        // disappear behind the bean silhouette as it bobs gently while walking.
+        for side: CGFloat in [-1, 1] {
+            let stride = side < 0 ? step : -step
+            let hip = x + side * 23
+            var foot = Path()
+            foot.move(to: CGPoint(x: hip - 9, y: 335 + sway))
+            foot.addLine(to: CGPoint(x: hip - 9 + stride, y: 365))
+            foot.addQuadCurve(to: CGPoint(x: hip - 21 + stride, y: 368), control: CGPoint(x: hip - 24 + stride, y: 365))
+            foot.addQuadCurve(to: CGPoint(x: hip - 20 + stride, y: 380), control: CGPoint(x: hip - 31 + stride, y: 380))
+            foot.addLine(to: CGPoint(x: hip + 8 + stride, y: 380))
+            foot.addQuadCurve(to: CGPoint(x: hip + 13 + stride, y: 372), control: CGPoint(x: hip + 15 + stride, y: 380))
+            foot.addLine(to: CGPoint(x: hip + 9, y: 335 + sway))
+            foot.closeSubpath()
+            outlined(context, foot, width: 5)
         }
-        let pants = Color(hex: 0x3A5D51)
 
-        context.fill(Path(ellipseIn: CGRect(x: x - 58, y: 373, width: 120, height: 15)), with: .color(.black.opacity(0.12)))
-        line(context, from: CGPoint(x: x - 20, y: 307), to: CGPoint(x: x - 24 + leftFoot, y: 371), color: pants, width: 29)
-        line(context, from: CGPoint(x: x + 18, y: 307), to: CGPoint(x: x + 25 - leftFoot, y: 371), color: pants, width: 29)
-        context.fill(Path(roundedRect: CGRect(x: x - 47 + leftFoot, y: 367, width: 43, height: 15), cornerSize: CGSize(width: 7, height: 7)),
-                     with: .color(cream))
-        context.fill(Path(roundedRect: CGRect(x: x + 6 - leftFoot, y: 367, width: 43, height: 15), cornerSize: CGSize(width: 7, height: 7)),
-                     with: .color(cream))
-
-        // Relaxed far arm, behind the torso.
+        // Simple mitten-like limbs live behind the body; this hides joints
+        // inside the bean while keeping the visible hand attached to the cup.
         var farArm = Path()
-        farArm.move(to: CGPoint(x: x + 37, y: 220 + sway))
-        farArm.addQuadCurve(to: CGPoint(x: x + 54, y: 270), control: CGPoint(x: x + 59, y: 233))
-        farArm.addQuadCurve(to: CGPoint(x: x + 20 - pose.relaxed * 9, y: 295 - pose.relaxed * 10),
-                            control: CGPoint(x: x + 51, y: 292))
-        context.stroke(farArm, with: .color(sweater.opacity(0.85)), style: StrokeStyle(lineWidth: 23, lineCap: .round, lineJoin: .round))
-        context.fill(Path(ellipseIn: CGRect(x: x + 8 - pose.relaxed * 9, y: 287 - pose.relaxed * 10, width: 22, height: 15)),
-                     with: .color(skin))
+        farArm.move(to: CGPoint(x: x + 51, y: 260 + sway))
+        farArm.addCurve(to: CGPoint(x: x + 70, y: 313 + sway - pose.relaxed * 5),
+                        control1: CGPoint(x: x + 84, y: 275 + sway), control2: CGPoint(x: x + 94, y: 313 + sway))
+        strokeLimb(context, farArm, width: 15)
+        var nearArm = Path()
+        nearArm.move(to: body.shoulder)
+        nearArm.addLine(to: body.elbow)
+        nearArm.addLine(to: body.wrist)
+        strokeLimb(context, nearArm, width: 15)
 
-        // Neck and a soft oversized sweater.
-        context.fill(Path(roundedRect: CGRect(x: x - 12, y: 174 + sway, width: 26, height: 34), cornerSize: CGSize(width: 8, height: 8)),
-                     with: .color(skin))
-        var torso = Path()
-        torso.move(to: CGPoint(x: x - 16, y: 197 + sway))
-        torso.addQuadCurve(to: CGPoint(x: x - 47, y: 218 + sway), control: CGPoint(x: x - 40, y: 197 + sway))
-        torso.addLine(to: CGPoint(x: x - 42, y: 310))
-        torso.addQuadCurve(to: CGPoint(x: x + 42, y: 310), control: CGPoint(x: x, y: 323))
-        torso.addLine(to: CGPoint(x: x + 47, y: 218 + sway))
-        torso.addQuadCurve(to: CGPoint(x: x + 15, y: 197 + sway), control: CGPoint(x: x + 40, y: 197 + sway))
-        torso.addQuadCurve(to: CGPoint(x: x - 16, y: 197 + sway), control: CGPoint(x: x, y: 213 + sway))
-        context.fill(torso, with: .linearGradient(Gradient(colors: [sweater, sweater.opacity(0.8)]),
-                                                startPoint: CGPoint(x: x - 40, y: 200), endPoint: CGPoint(x: x + 40, y: 320)))
-        line(context, from: CGPoint(x: x - 32, y: 304), to: CGPoint(x: x + 33, y: 304), color: dark.opacity(0.08), width: 2)
-        context.fill(Path(roundedRect: CGRect(x: x + 6, y: 236, width: 21, height: 22), cornerSize: CGSize(width: 3, height: 3)),
-                     with: .color(cream.opacity(0.18)))
+        // One continuous bean body: no separate head, neck, hair, or outfit.
+        var silhouette = Path()
+        silhouette.move(to: CGPoint(x: x - 43, y: 176 + sway))
+        silhouette.addCurve(to: CGPoint(x: x + 8, y: 140 + sway),
+                            control1: CGPoint(x: x - 28, y: 151 + sway), control2: CGPoint(x: x - 7, y: 138 + sway))
+        silhouette.addCurve(to: CGPoint(x: x + 59, y: 168 + sway),
+                            control1: CGPoint(x: x + 35, y: 136 + sway), control2: CGPoint(x: x + 61, y: 146 + sway))
+        silhouette.addCurve(to: CGPoint(x: x + 49, y: 244 + sway),
+                            control1: CGPoint(x: x + 69, y: 194 + sway), control2: CGPoint(x: x + 43, y: 216 + sway))
+        silhouette.addCurve(to: CGPoint(x: x + 49, y: 327 + sway),
+                            control1: CGPoint(x: x + 50, y: 272 + sway), control2: CGPoint(x: x + 75, y: 304 + sway))
+        silhouette.addCurve(to: CGPoint(x: x - 37, y: 346 + sway),
+                            control1: CGPoint(x: x + 30, y: 354 + sway), control2: CGPoint(x: x - 12, y: 357 + sway))
+        silhouette.addCurve(to: CGPoint(x: x - 69, y: 282 + sway),
+                            control1: CGPoint(x: x - 65, y: 335 + sway), control2: CGPoint(x: x - 73, y: 310 + sway))
+        silhouette.addCurve(to: CGPoint(x: x - 43, y: 176 + sway),
+                            control1: CGPoint(x: x - 73, y: 246 + sway), control2: CGPoint(x: x - 61, y: 205 + sway))
+        silhouette.closeSubpath()
+        outlined(context, silhouette, width: 5.5)
 
-        // Head tilts back slightly with the sip, then softens into a smile.
-        var head = context
-        head.translateBy(x: x, y: 145 + sway)
-        head.rotate(by: .degrees(-pose.tilt * 9 + pose.relaxed * 4))
-        head.fill(Path(ellipseIn: CGRect(x: -33, y: -46, width: 68, height: 79)), with: .color(dark))
-        if character == .woman {
-            // Longer hair behind the face; the shared pose and actions stay equal.
-            head.fill(Path(ellipseIn: CGRect(x: 22, y: -10, width: 34, height: 72)), with: .color(dark))
+        let closedEyes = pose.tilt > 0.25 || pose.relaxed > 0.1
+        for eyeX in [x - 28, x + 1] {
+            if closedEyes {
+                var eye = Path()
+                eye.move(to: CGPoint(x: eyeX - 4, y: 213 + sway))
+                eye.addQuadCurve(to: CGPoint(x: eyeX + 4, y: 213 + sway), control: CGPoint(x: eyeX, y: 217 + sway))
+                context.stroke(eye, with: .color(dark), style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+            } else {
+                context.fill(Path(ellipseIn: CGRect(x: eyeX - 3.4, y: 209 + sway, width: 6.8, height: 7.6)), with: .color(dark))
+            }
         }
-        head.fill(Path(ellipseIn: CGRect(x: -30, y: -35, width: 60, height: 77)), with: .color(skin))
-        head.fill(Path(ellipseIn: CGRect(x: 23, y: 0, width: 14, height: 20)), with: .color(skin))
-        var hair = Path()
-        hair.move(to: CGPoint(x: -33, y: -13))
-        hair.addCurve(to: CGPoint(x: 31, y: -5), control1: CGPoint(x: -48, y: -68), control2: CGPoint(x: 48, y: -69))
-        hair.addLine(to: CGPoint(x: 26, y: 11))
-        hair.addQuadCurve(to: CGPoint(x: 17, y: -17), control: CGPoint(x: 13, y: 1))
-        hair.addQuadCurve(to: CGPoint(x: -18, y: -21), control: CGPoint(x: -8, y: -8))
-        hair.addQuadCurve(to: CGPoint(x: -33, y: -13), control: CGPoint(x: -23, y: -12))
-        head.fill(hair, with: .color(dark))
-        if character == .man {
-            var crop = Path()
-            crop.move(to: CGPoint(x: -34, y: -23))
-            crop.addLine(to: CGPoint(x: -26, y: -43))
-            crop.addQuadCurve(to: CGPoint(x: 28, y: -34), control: CGPoint(x: 8, y: -60))
-            crop.addLine(to: CGPoint(x: 31, y: -6))
-            crop.addQuadCurve(to: CGPoint(x: -34, y: -23), control: CGPoint(x: 10, y: -38))
-            head.fill(crop, with: .color(dark))
-        }
-        line(head, from: CGPoint(x: -19, y: -38), to: CGPoint(x: 2, y: -43), color: cream.opacity(0.11), width: 3)
-        head.fill(Path(ellipseIn: CGRect(x: -36, y: 0, width: 11, height: 14)), with: .color(skin))
-        let eyesClosed = pose.tilt > 0.15 || pose.relaxed > 0.1
-        if eyesClosed {
-            var eye = Path()
-            eye.move(to: CGPoint(x: -20, y: -3))
-            eye.addQuadCurve(to: CGPoint(x: -9, y: -3), control: CGPoint(x: -14, y: 2))
-            head.stroke(eye, with: .color(dark.opacity(0.7)), style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
-        } else {
-            head.fill(Path(ellipseIn: CGRect(x: -20, y: -4, width: 4, height: 5)), with: .color(dark.opacity(0.8)))
-        }
-        head.fill(Path(ellipseIn: CGRect(x: -13, y: 9, width: 14, height: 8)), with: .color(Color(hex: 0xD58A75).opacity(0.4 + pose.relaxed * 0.2)))
-        var mouth = Path()
-        mouth.move(to: CGPoint(x: -25, y: 17))
-        mouth.addQuadCurve(to: CGPoint(x: -11, y: 19), control: CGPoint(x: -19, y: 19 + pose.relaxed * 8))
-        head.stroke(mouth, with: .color(dark.opacity(0.65)), style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
-
-        line(context, from: body.shoulder, to: body.elbow, color: sweater, width: 26)
-        line(context, from: body.elbow, to: body.wrist, color: skin, width: 17)
-        context.fill(Path(ellipseIn: CGRect(x: body.wrist.x - 9, y: body.wrist.y - 8, width: 18, height: 16)), with: .color(skin))
+        // The mouth uses the same anchor as the cup's upper-right rim.
+        var smile = Path()
+        smile.move(to: CGPoint(x: body.mouth.x - 3, y: body.mouth.y))
+        smile.addQuadCurve(to: CGPoint(x: body.mouth.x + 12, y: body.mouth.y),
+                           control: CGPoint(x: body.mouth.x + 4, y: body.mouth.y + 3 + pose.relaxed * 5))
+        context.stroke(smile, with: .color(dark.opacity(0.85)), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
     }
 
-    private func drawFingers(_ context: GraphicsContext, body: DrinkingBodyPose, pose: DrinkingTimeline) {
+    private func outlined(_ context: GraphicsContext, _ path: Path, width: CGFloat) {
+        context.fill(path, with: .color(bean))
+        context.stroke(path, with: .color(dark), style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+    }
+
+    private func strokeLimb(_ context: GraphicsContext, _ path: Path, width: CGFloat) {
+        context.stroke(path, with: .color(dark), style: StrokeStyle(lineWidth: width + 6, lineCap: .round, lineJoin: .round))
+        context.stroke(path, with: .color(bean), style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+    }
+
+    private func drawGrip(_ context: GraphicsContext, body: DrinkingBodyPose, pose: DrinkingTimeline) {
         guard pose.grasp > 0 else { return }
         var hand = context
         hand.opacity *= pose.grasp
         hand.translateBy(x: body.cupCenter.x, y: body.cupCenter.y)
         hand.rotate(by: .degrees(pose.tilt * 49))
-        // The fingers wrap over the rim-side edge; the wrist behind the glass
-        // and these foreground fingers stay attached as the glass rotates.
-        for index in 0..<3 {
-            let y = CGFloat(3 + index * 4)
-            line(hand, from: CGPoint(x: 19, y: y), to: CGPoint(x: 29, y: y + 1), color: skin, width: 3.4)
-        }
+        let mitten = Path(roundedRect: CGRect(x: 15, y: -1, width: 16, height: 16), cornerRadius: 7)
+        outlined(hand, mitten, width: 3)
     }
 
     private func drawCup(_ context: GraphicsContext, center: CGPoint, pose: DrinkingTimeline) {
@@ -264,26 +248,29 @@ struct DrinkingRitualScene: View {
         line(glass, from: CGPoint(x: -19, y: -26), to: CGPoint(x: -15, y: 28), color: .white.opacity(0.35), width: 2)
     }
 
-    private func drawRelief(_ context: GraphicsContext, x: Double, pose: DrinkingTimeline) {
+    private func drawRelief(_ context: GraphicsContext, body: DrinkingBodyPose, pose: DrinkingTimeline) {
+        let x = Double(body.positionX)
         var relief = context
         relief.opacity *= pose.relaxed
-        let bubble = Path(roundedRect: CGRect(x: x - 42, y: 31, width: 155, height: 40), cornerSize: CGSize(width: 17, height: 17))
+        let bubble = Path(roundedRect: CGRect(x: x - 42, y: 60, width: 155, height: 40), cornerSize: CGSize(width: 17, height: 17))
         relief.fill(bubble, with: .color(Palette.mint.opacity(0.12)))
         var tip = Path()
-        tip.move(to: CGPoint(x: x - 4, y: 69)); tip.addLine(to: CGPoint(x: x + 5, y: 80)); tip.addLine(to: CGPoint(x: x + 12, y: 69))
+        tip.move(to: CGPoint(x: x - 4, y: 98)); tip.addLine(to: CGPoint(x: x + 5, y: 109)); tip.addLine(to: CGPoint(x: x + 12, y: 98))
         relief.fill(tip, with: .color(Palette.mint.opacity(0.12)))
-        label(relief, "啊，舒服了～", at: CGPoint(x: x + 35, y: 51), size: 15, color: Palette.mint.opacity(0.9))
+        label(relief, "啊，舒服了～", at: CGPoint(x: x + 35, y: 80), size: 15, color: Palette.mint.opacity(0.9))
         for index in 0..<4 {
             let angle = Double(index) * 0.68 - 1.7
             let distance = 82.0 + sin(pose.time * 2 + Double(index)) * 4
-            let origin = CGPoint(x: x + cos(angle) * distance, y: 145 + sin(angle) * distance)
+            let origin = CGPoint(x: x + cos(angle) * distance, y: 205 + sin(angle) * distance)
             sparkle(relief, at: origin, radius: index.isMultiple(of: 2) ? 5 : 3, opacity: 0.6)
         }
         let breath = sin(min(max((pose.time - 10.8) / 2.3, 0), 1) * .pi)
         if breath > 0 {
             var path = Path()
-            path.move(to: CGPoint(x: x - 37, y: 169))
-            path.addCurve(to: CGPoint(x: x - 92, y: 149), control1: CGPoint(x: x - 78, y: 186), control2: CGPoint(x: x - 103, y: 167))
+            path.move(to: body.mouth)
+            path.addCurve(to: CGPoint(x: body.mouth.x - 55, y: body.mouth.y - 20),
+                          control1: CGPoint(x: body.mouth.x - 41, y: body.mouth.y + 17),
+                          control2: CGPoint(x: body.mouth.x - 66, y: body.mouth.y - 2))
             relief.stroke(path, with: .color(cream.opacity(breath * 0.4)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
         }
     }

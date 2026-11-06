@@ -13,7 +13,7 @@ A native macOS water reminder with configurable intervals, daily hours, a menu-b
 - Reminder intervals from 1 to 240 minutes, with quick presets.
 - Daily start/end times, overnight schedules, and an all-day option when both times match.
 - Resolution-independent SwiftUI Canvas animation: a calm dashboard glass and a full-screen open-kitchen ritual with a filtered-water tap, filling a cup, sipping, and a relieved exhale.
-- Neutral, woman, and man character options; the neutral character is the default.
+- One mint bean mascot with dot eyes and short limbs, drawn with simple vector paths. There are no gender or character options.
 - Optional synchronized pouring, gulping, and sigh sound effects, synthesized offline. Multiple displays share one audio player.
 - Pointer-display targeting, an explicit all-display mode, and an all-display fallback when no display matches the pointer.
 - Drink confirmation, five-minute snooze, Escape to dismiss, and optional automatic dismissal.

@@ -49,7 +49,7 @@ struct PreviewRenderer {
                    size: NSSize(width: 1440, height: 900), name: "reminder.png")
         try export(SettingsView(model: model).padding(30).frame(width: 800)
             .background(Palette.background).preferredColorScheme(.light),
-                   size: NSSize(width: 800, height: 1720), name: "settings.png")
+                   size: NSSize(width: 800, height: 1560), name: "settings.png")
         let verification = ReminderSession(preview: true, servingML: 250, seconds: 30, requiresVerification: true)
         try export(ReminderView(session: verification, onAction: { _ in }).frame(width: 1440, height: 900),
                    size: NSSize(width: 1440, height: 900), name: "camera-verification.png")
@@ -65,18 +65,18 @@ struct PreviewRenderer {
                 .font(.system(size: 10)).foregroundStyle(Palette.mint.opacity(0.45))
         }.padding(22).frame(width: 620, height: 132, alignment: .leading).background(Palette.ocean)
         try export(diagnosticsCard, size: NSSize(width: 620, height: 132), name: "camera-diagnostics.png")
-        let characters = HStack(spacing: 0) {
-            ForEach(ReminderCharacter.allCases) { character in
+        let phases: [(String, Double)] = [("接一杯净水", 4.6), ("慢慢喝一口", 8.2), ("放松地舒气", 11.7)]
+        let mascot = HStack(spacing: 0) {
+            ForEach(phases.indices, id: \.self) { index in
                 VStack(spacing: 8) {
-                    DrinkingRitualScene(startedAt: .now, character: character,
-                                        snapshotTime: character == .neutral ? 4 : character == .woman ? 8.2 : 11.7)
+                    DrinkingRitualScene(startedAt: .now, snapshotTime: phases[index].1)
                         .frame(width: 440, height: 240)
-                    Text(character == .neutral ? "中性 · 接一杯净水" : character == .woman ? "女性 · 慢慢喝一口" : "男性 · 放松地舒气")
+                    Text(phases[index].0)
                         .font(.system(size: 14, weight: .medium)).foregroundStyle(Palette.mint.opacity(0.85))
                 }
             }
         }
         .padding(25).background(Palette.ocean)
-        try export(characters, size: NSSize(width: 1370, height: 320), name: "characters.png")
+        try export(mascot, size: NSSize(width: 1370, height: 320), name: "mascot-poses.png")
     }
 }

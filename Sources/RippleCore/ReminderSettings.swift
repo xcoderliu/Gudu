@@ -7,14 +7,6 @@ public enum DisplayMode: String, CaseIterable, Codable, Sendable, Identifiable {
     public var id: String { rawValue }
 }
 
-public enum ReminderCharacter: String, CaseIterable, Codable, Sendable, Identifiable {
-    case neutral
-    case woman
-    case man
-
-    public var id: String { rawValue }
-}
-
 public struct ReminderSettings: Codable, Equatable, Sendable {
     public var intervalMinutes: Int
     public var startMinute: Int
@@ -25,7 +17,6 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
     public var autoDismissSeconds: Int
     public var servingML: Int
     public var dailyGoalML: Int
-    public var character: ReminderCharacter
     public var requireDrinkVerification: Bool
 
     public init(
@@ -38,7 +29,6 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         autoDismissSeconds: Int = 30,
         servingML: Int = 250,
         dailyGoalML: Int = 2000,
-        character: ReminderCharacter = .neutral,
         requireDrinkVerification: Bool = false
     ) {
         self.intervalMinutes = intervalMinutes
@@ -50,14 +40,13 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         self.autoDismissSeconds = autoDismissSeconds
         self.servingML = servingML
         self.dailyGoalML = dailyGoalML
-        self.character = character
         self.requireDrinkVerification = requireDrinkVerification
         normalize()
     }
 
     private enum CodingKeys: String, CodingKey {
         case intervalMinutes, startMinute, endMinute, isEnabled, displayMode
-        case soundEnabled, autoDismissSeconds, servingML, dailyGoalML, character, requireDrinkVerification
+        case soundEnabled, autoDismissSeconds, servingML, dailyGoalML, requireDrinkVerification
     }
 
     public init(from decoder: Decoder) throws {
@@ -72,7 +61,6 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
             autoDismissSeconds: try values.decodeIfPresent(Int.self, forKey: .autoDismissSeconds) ?? 30,
             servingML: try values.decodeIfPresent(Int.self, forKey: .servingML) ?? 250,
             dailyGoalML: try values.decodeIfPresent(Int.self, forKey: .dailyGoalML) ?? 2000,
-            character: try values.decodeIfPresent(ReminderCharacter.self, forKey: .character) ?? .neutral,
             requireDrinkVerification: try values.decodeIfPresent(Bool.self, forKey: .requireDrinkVerification) ?? false
         )
     }

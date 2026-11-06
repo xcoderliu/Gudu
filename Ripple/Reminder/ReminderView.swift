@@ -35,7 +35,7 @@ struct ReminderView: View {
 
                     VStack(spacing: 0) {
                         ZStack {
-                            DrinkingRitualScene(startedAt: session.startedAt, character: session.character)
+                            DrinkingRitualScene(startedAt: session.startedAt)
                                 .frame(width: 800, height: session.requiresVerification ? 255 : 360)
                                 .opacity(session.completed ? 0.15 : 1)
                             if session.completed {

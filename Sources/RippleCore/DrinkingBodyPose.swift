@@ -1,16 +1,18 @@
 import CoreGraphics
 import Foundation
 
-/// Character and cup share one motion plan. A fixed-length, two-bone arm bends
+/// Bean mascot and cup share one motion plan. A fixed-length, two-bone arm bends
 /// at the elbow instead of stretching to follow an unreachable glass.
 public struct DrinkingBodyPose: Sendable {
-    public static let upperArmLength: CGFloat = 64
-    public static let forearmLength: CGFloat = 60
+    public static let upperArmLength: CGFloat = 36
+    public static let forearmLength: CGFloat = 34
 
     public let positionX: CGFloat
     public let sway: CGFloat
     public let stride: CGFloat
     public let cupCenter: CGPoint
+    public let mouth: CGPoint
+    public let cupLip: CGPoint
     public let grip: CGPoint
     public let shoulder: CGPoint
     public let elbow: CGPoint
@@ -24,20 +26,25 @@ public struct DrinkingBodyPose: Sendable {
         sway = CGFloat(sin(timeline.time * 10) * walking * 2 - timeline.relaxed * 2)
         stride = CGFloat(sin(timeline.time * 10) * walking * 12)
 
-        // Carry with the torso, then bring the cup toward the face. Holding it
-        // forward until it rises prevents the wrist from crossing the shoulder.
-        cupCenter = CGPoint(
-            x: 238 + 46 * timeline.arrival + 277 * carry + 68 * carry * carry * carry
-                - 35 * carry * (1 - timeline.tilt) * (1 - timeline.withdraw) - 42 * timeline.withdraw,
-            y: 291 - 78 * carry - sin(carry * .pi) * 12 - 25 * timeline.tilt + 55 * timeline.lower
-        )
+        mouth = CGPoint(x: positionX - 35, y: 235 + sway)
         let angle = timeline.tilt * 49 * .pi / 180
+        let rimOffset = CGPoint(x: 27 * cos(angle) + 39 * sin(angle),
+                                y: 27 * sin(angle) - 39 * cos(angle))
+        let carried = CGPoint(
+            x: 238 + 46 * timeline.arrival + 277 * carry + 33 * carry * carry * carry - 8 * timeline.withdraw,
+            y: 291 - 20 * carry - sin(carry * .pi) * 8 + 20 * timeline.lower)
+        let sip = timeline.tilt * carry
+        // Rotate the same rim point into the mouth, rather than lifting a glass
+        // toward the old human head. The small mascot can keep its short arms.
+        cupCenter = CGPoint(x: carried.x + (mouth.x - rimOffset.x - carried.x) * sip,
+                            y: carried.y + (mouth.y - rimOffset.y - carried.y) * sip)
+        cupLip = CGPoint(x: cupCenter.x + rimOffset.x, y: cupCenter.y + rimOffset.y)
         grip = CGPoint(
             x: cupCenter.x + CGFloat(23 * cos(angle) - 7 * sin(angle)),
             y: cupCenter.y + CGFloat(23 * sin(angle) + 7 * cos(angle))
         )
-        shoulder = CGPoint(x: positionX - 35, y: 222 + sway)
-        let rest = CGPoint(x: positionX - 43, y: 337 + sway)
+        shoulder = CGPoint(x: positionX - 57, y: 267 + sway)
+        let rest = CGPoint(x: positionX - 80, y: 315 + sway)
         let reach = CGFloat(timeline.pickup)
         let target = CGPoint(x: rest.x + (grip.x - rest.x) * reach,
                              y: rest.y + (grip.y - rest.y) * reach)

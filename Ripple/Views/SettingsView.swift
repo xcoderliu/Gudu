@@ -62,21 +62,9 @@ struct SettingsView: View {
                 }
             }
             Card {
-                VStack(alignment: .leading, spacing: 17) {
-                    SectionHeading(title: "喜欢的陪伴形象", subtitle: "选择全屏动画中的人物，按自己的喜好就好。")
-                    Picker("人物形象", selection: $model.settings.character) {
-                        Text("中性形象").tag(ReminderCharacter.neutral)
-                        Text("女性形象").tag(ReminderCharacter.woman)
-                        Text("男性形象").tag(ReminderCharacter.man)
-                    }
-                    .pickerStyle(.segmented).labelsHidden()
-                    .accessibilityLabel("全屏动画人物形象")
-                }
-            }
-            Card {
                 VStack(alignment: .leading, spacing: 21) {
                     SectionHeading(title: "杯子到嘴边，再继续", subtitle: "实验功能：检测杯子靠近嘴边，不判断是否真正吞咽。")
-                    SettingsRow(title: "强制检测喝水", detail: "提醒时使用摄像头；杯子靠近嘴边约 1 秒后自动完成。") {
+                    SettingsRow(title: "强制检测喝水", detail: "提醒时使用摄像头；累计有效杯具线索后完成，遮挡时确认会慢一些。") {
                         Toggle("强制检测喝水", isOn: $model.settings.requireDrinkVerification)
                             .labelsHidden().toggleStyle(.switch).tint(Palette.accent)
                     }
