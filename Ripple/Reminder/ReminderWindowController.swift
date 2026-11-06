@@ -32,19 +32,23 @@ final class ReminderSession: ObservableObject {
 @MainActor
 final class ReminderWindowController {
     private let model: AppModel
+    private let presentsWindows: Bool
     private(set) var panels: [ReminderPanel] = []
+    private(set) var celebrationPanels: [CelebrationPanel] = []
     private var session: ReminderSession?
     private var keyMonitor: Any?
     private var screenObserver: NSObjectProtocol?
     private var autoDismissTask: Task<Void, Never>?
-    private var completionTask: Task<Void, Never>?
+    private var celebrationTask: Task<Void, Never>?
+    private var shouldCelebrateCompletion = false
     private var finishing = false
     private var closing = false
     private var audioPlayer: AVAudioPlayer?
     private var escapeTask: Task<Void, Never>?
 
-    init(model: AppModel) {
+    init(model: AppModel, presentsWindows: Bool = true) {
         self.model = model
+        self.presentsWindows = presentsWindows
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -54,6 +58,7 @@ final class ReminderWindowController {
 
     func present(preview: Bool, testVerification: Bool = false) {
         guard panels.isEmpty else { return }
+        stopCelebration()
         let screens = NSScreen.screens
         let cursor = NSEvent.mouseLocation
         let indices = ScreenRouter.targetIndices(cursor: cursor, frames: screens.map(\.frame), mode: model.settings.displayMode)
@@ -67,6 +72,7 @@ final class ReminderWindowController {
         self.session = session
         finishing = false
         closing = false
+        shouldCelebrateCompletion = false
 
         for index in indices {
             let screen = screens[index]
@@ -89,12 +95,12 @@ final class ReminderWindowController {
             })
             panel.setFrame(screen.frame, display: true)
             panel.alphaValue = 0
-            panel.orderFrontRegardless()
+            if presentsWindows { panel.orderFrontRegardless() }
             panels.append(panel)
         }
         // Key only the panel under the pointer. Other displays stay synchronized.
         let active = panels.first { $0.frame.contains(cursor) } ?? panels.first
-        active?.makeKey()
+        if presentsWindows { active?.makeKey() }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.45
             panels.forEach { $0.animator().alphaValue = 1 }
@@ -146,21 +152,23 @@ final class ReminderWindowController {
             finishing = true
             autoDismissTask?.cancel()
             session.camera.stop(keepState: true)
-            if model.settings.soundEnabled { playSound("Satisfied") }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { session.completed = true }
-            completionTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(900))
-                guard !Task.isCancelled else { return }
-                self?.dismiss(action: .drank)
-            }
+            session.completed = true
+            shouldCelebrateCompletion = true
+            dismiss(action: .drank)
         } else { dismiss(action: action) }
     }
 
     func dismiss(action: ReminderAction) {
-        guard let session, !closing else { return }
+        stopCelebration()
+        guard let session else { return }
+        if closing {
+            // A lock, sleep, display change, or opt-out during the fade cancels
+            // the decoration without changing an already accepted drink.
+            shouldCelebrateCompletion = false
+            return
+        }
         closing = true
         autoDismissTask?.cancel()
-        completionTask?.cancel()
         escapeTask?.cancel()
         escapeTask = nil
         session.camera.stop()
@@ -168,22 +176,72 @@ final class ReminderWindowController {
         audioPlayer = nil
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor); self.keyMonitor = nil }
         let windows = panels
+        let targetFrames = windows.map(\.frame)
         NSAnimationContext.runAnimationGroup { context in
             context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.25
             windows.forEach { $0.animator().alphaValue = 0 }
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {
                 windows.forEach { $0.close() }
-                self?.panels.removeAll()
-                self?.session = nil
-                self?.finishing = false
-                self?.closing = false
-                self?.model.finishReminder(action, preview: session.isPreview)
+                guard let self else { return }
+                self.panels.removeAll()
+                self.session = nil
+                self.finishing = false
+                self.closing = false
+                if self.shouldCelebrateCompletion && !self.model.isScreenUnavailable {
+                    self.showCelebration(on: targetFrames, preview: session.isPreview, servingML: session.servingML)
+                }
+                self.shouldCelebrateCompletion = false
+                self.model.finishReminder(action, preview: session.isPreview)
             }
         }
     }
 
-    func shutdown() { session?.camera.stop(); escapeTask?.cancel() }
+    func shutdown() {
+        shouldCelebrateCompletion = false
+        session?.camera.stop()
+        escapeTask?.cancel()
+        stopCelebration()
+    }
+
+    private func showCelebration(on targetFrames: [CGRect], preview: Bool, servingML: Int) {
+        let startedAt = Date()
+        for screen in NSScreen.screens where targetFrames.contains(screen.frame) {
+            let panel = CelebrationPanel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel],
+                                         backing: .buffered, defer: false, screen: screen)
+            panel.level = .screenSaver
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+            if #available(macOS 15.0, *) { panel.collectionBehavior.insert(.canJoinAllApplications) }
+            panel.isReleasedWhenClosed = false
+            panel.hidesOnDeactivate = false
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = false
+            panel.ignoresMouseEvents = true
+            panel.animationBehavior = .none
+            panel.contentView = NSHostingView(rootView: ConfettiCelebrationView(startedAt: startedAt,
+                                                                               preview: preview, servingML: servingML))
+            panel.setFrame(screen.frame, display: true)
+            if presentsWindows { panel.orderFrontRegardless() }
+            celebrationPanels.append(panel)
+        }
+        guard !celebrationPanels.isEmpty else { return }
+        if model.settings.soundEnabled { playSound("Satisfied") }
+        let duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1.4 : ConfettiCelebrationView.duration
+        celebrationTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(duration))
+            guard !Task.isCancelled else { return }
+            self?.stopCelebration()
+        }
+    }
+
+    private func stopCelebration() {
+        if !celebrationPanels.isEmpty { audioPlayer?.stop(); audioPlayer = nil }
+        celebrationTask?.cancel()
+        celebrationTask = nil
+        celebrationPanels.forEach { $0.close() }
+        celebrationPanels.removeAll()
+    }
 
     func cancelVerification() {
         if session?.requiresVerification == true { dismiss(action: .emergencyExit) }
@@ -221,5 +279,10 @@ final class ReminderWindowController {
 
 final class ReminderPanel: NSPanel {
     override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+final class CelebrationPanel: NSPanel {
+    override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }

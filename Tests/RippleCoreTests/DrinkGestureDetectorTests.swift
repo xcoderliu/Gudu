@@ -12,7 +12,16 @@ final class DrinkGestureDetectorTests: XCTestCase {
 
     func testCupAtMouthCompletesWithoutLowering() {
         var detector = DrinkGestureDetector()
-        run(&detector, from: 0, through: 10)
+        run(&detector, from: 0, through: 14)
+        XCTAssertTrue(detector.progress.isVerified)
+    }
+
+    func testRequiresOnePointTwoSecondsOfCupEvidence() {
+        var detector = DrinkGestureDetector()
+        run(&detector, from: 0, through: 11)
+        XCTAssertFalse(detector.progress.isVerified, "The previous shorter hold must not complete a drink")
+        XCTAssertEqual(detector.progress.fraction, 1.1 / 1.2, accuracy: 0.0001)
+        run(&detector, from: 12, through: 12, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
@@ -31,21 +40,21 @@ final class DrinkGestureDetectorTests: XCTestCase {
     func testCupCoveringEntireFaceStillCompletes() {
         var detector = DrinkGestureDetector()
         run(&detector, from: 0, through: 0, confidence: 0)
-        run(&detector, from: 1, through: 12, faceCount: 0)
+        run(&detector, from: 1, through: 14, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
     func testOnlyTheFirstFrameNeedsMouthCalibration() {
         var detector = DrinkGestureDetector()
         run(&detector, from: 0, through: 0, confidence: 0)
-        run(&detector, from: 1, through: 12, faceCount: 0, remembered: false)
+        run(&detector, from: 1, through: 14, faceCount: 0, remembered: false)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
     func testRememberedMouthHasNoFaceLossTimeout() {
         var detector = DrinkGestureDetector()
         run(&detector, from: 0, through: 0, confidence: 0)
-        run(&detector, from: 100, through: 112, faceCount: 0)
+        run(&detector, from: 100, through: 114, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
@@ -57,7 +66,7 @@ final class DrinkGestureDetectorTests: XCTestCase {
         run(&detector, from: 5, through: 20, confidence: 0, faceCount: 0)
         XCTAssertEqual(detector.progress.fraction, held)
         XCTAssertEqual(detector.progress.stage, .bringCup)
-        run(&detector, from: 21, through: 26, faceCount: 0)
+        run(&detector, from: 21, through: 30, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
@@ -67,7 +76,7 @@ final class DrinkGestureDetectorTests: XCTestCase {
         let held = detector.progress.fraction
         run(&detector, from: 5, through: 100, confidence: 0)
         XCTAssertEqual(detector.progress.fraction, held)
-        run(&detector, from: 101, through: 106)
+        run(&detector, from: 101, through: 110)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
@@ -93,7 +102,7 @@ final class DrinkGestureDetectorTests: XCTestCase {
         run(&detector, from: 100, through: 100, faceCount: 0)
         XCTAssertEqual(detector.progress.fraction, held)
         XCTAssertFalse(detector.progress.isVerified)
-        run(&detector, from: 101, through: 107, faceCount: 0)
+        run(&detector, from: 101, through: 111, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
@@ -119,14 +128,14 @@ final class DrinkGestureDetectorTests: XCTestCase {
         let held = detector.progress.fraction
         run(&detector, from: 4, through: 10, confidence: 0, faceCount: 2)
         XCTAssertEqual(detector.progress.fraction, held)
-        run(&detector, from: 11, through: 17, faceCount: 0)
+        run(&detector, from: 11, through: 22, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
 
     func testVerificationIsTerminal() {
         var detector = DrinkGestureDetector()
-        run(&detector, from: 0, through: 10)
-        run(&detector, from: 11, through: 30, confidence: 0, faceCount: 0)
+        run(&detector, from: 0, through: 14)
+        run(&detector, from: 15, through: 30, confidence: 0, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
 }

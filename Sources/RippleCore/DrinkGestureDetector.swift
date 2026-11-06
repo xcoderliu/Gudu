@@ -31,6 +31,7 @@ public struct DrinkVerificationProgress: Sendable, Equatable {
 /// Losing face detection or temporarily missing a cup pauses progress, never
 /// reverses it. A new camera session explicitly starts a new detector.
 public struct DrinkGestureDetector: Sendable {
+    public static let requiredEvidenceDuration: TimeInterval = 1.2
     public private(set) var progress = DrinkVerificationProgress(stage: .findingFace)
     private var lastTime: TimeInterval?
     private var hasMouthLocation = false
@@ -54,12 +55,12 @@ public struct DrinkGestureDetector: Sendable {
             return set(.bringCup)
         }
         holding += delta
-        if holding >= 0.8 { return set(.verified) }
+        if holding >= Self.requiredEvidenceDuration { return set(.verified) }
         return set(.holding)
     }
 
     private mutating func set(_ stage: DrinkVerificationStage) -> DrinkVerificationProgress {
-        progress = DrinkVerificationProgress(stage: stage, fraction: stage == .verified ? 1 : holding / 0.8)
+        progress = DrinkVerificationProgress(stage: stage, fraction: stage == .verified ? 1 : holding / Self.requiredEvidenceDuration)
         return progress
     }
 }

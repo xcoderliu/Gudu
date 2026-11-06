@@ -16,6 +16,8 @@ struct MotionRenderer {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: .borderless, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.contentView = hosting
         defer { window.close() }
 
@@ -75,5 +77,34 @@ struct MotionRenderer {
         let contactBitmap = try render(contact, size: NSSize(width: 1324, height: 550))
         try contactBitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("pickup-frames.png"))
         print("Rendered \(gifURL.path) and pickup-frames.png")
+
+        let confettiSize = NSSize(width: 960, height: 600)
+        let confettiURL = output.appendingPathComponent("confetti-motion.gif")
+        guard let confetti = CGImageDestinationCreateWithURL(confettiURL as CFURL, UTType.gif.identifier as CFString, 72, nil) else {
+            throw NSError(domain: "RippleMotion", code: 5)
+        }
+        CGImageDestinationSetProperties(confetti, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+        for frame in 0..<72 {
+            let scene = ConfettiCelebrationView(startedAt: .now, preview: true, snapshotTime: Double(frame) / 24)
+                .frame(width: confettiSize.width, height: confettiSize.height)
+                .background(LinearGradient(colors: [Color(hex: 0x26384C), Color(hex: 0x496367)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing))
+                .id(frame)
+            let bitmap = try render(scene, size: confettiSize)
+            guard let image = bitmap.cgImage else { throw NSError(domain: "RippleMotion", code: 6) }
+            CGImageDestinationAddImage(confetti, image, [kCGImagePropertyGIFDictionary: [
+                kCGImagePropertyGIFDelayTime: 1.0 / 24,
+                kCGImagePropertyGIFUnclampedDelayTime: 1.0 / 24
+            ]] as CFDictionary)
+        }
+        guard CGImageDestinationFinalize(confetti) else { throw NSError(domain: "RippleMotion", code: 7) }
+        for still in [false, true] {
+            let scene = ConfettiCelebrationView(startedAt: .now, snapshotTime: 1, snapshotReduceMotion: still)
+                .frame(width: 1440, height: 900)
+            let bitmap = try render(scene, size: NSSize(width: 1440, height: 900))
+            let name = still ? "confetti-reduce-motion.png" : "confetti-transparent.png"
+            try bitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent(name))
+        }
+        print("Rendered \(confettiURL.path), confetti-transparent.png, and confetti-reduce-motion.png")
     }
 }

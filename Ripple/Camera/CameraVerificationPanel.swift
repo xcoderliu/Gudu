@@ -76,7 +76,7 @@ struct CameraVerificationPanel: View {
             case .holding: "正在确认记住位置附近的杯子，无需露出嘴巴。"
             case .verified: "即将完成本次提醒。"
             }
-        default: "先定位嘴部，再正常喝水，累计识别约 1 秒即可完成。"
+        default: "先定位嘴部，再正常喝水，累计识别 1.2 秒即可完成。"
         }
     }
 }
