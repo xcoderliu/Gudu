@@ -95,6 +95,8 @@ python3 scripts/make_sounds.py
 
 该脚本从视图渲染图片，不读取屏幕像素，也不改动真实应用的饮水数据。`docs/images/` 中的图片属于应用视图渲染，真实界面还包含 macOS 窗口边框。
 
+检查拿杯动作的连续变化，可执行 `./scripts/render_motion.sh`，在 `.local/` 导出动态 GIF 和六帧对照图。它们直接使用应用的矢量代码渲染，属于开发用配图，不会被打包为应用动画。
+
 ## 开发约定
 
 - UI 与窗口管理在主 actor 执行；时间与屏幕计算留在 `RippleCore`。

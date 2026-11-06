@@ -45,12 +45,10 @@ struct DrinkingRitualScene: View {
         drawPlant(scene, time: t)
         drawKitchen(scene, pose: pose)
 
-        let personX = 684 - 192 * pose.approach + 192 * pose.carry
-        let cupX = 238 + 46 * pose.arrival + 345 * pose.carry
-        let cupY = 291 - 103 * pose.carry - sin(pose.carry * .pi) * 12 + 80 * pose.lower
-        let cup = CGPoint(x: cupX, y: cupY)
-        drawPerson(scene, x: personX, cup: cup, pose: pose)
-        drawCup(scene, center: cup, pose: pose)
+        let body = DrinkingBodyPose(timeline: pose)
+        drawPerson(scene, body: body, pose: pose)
+        drawCup(scene, center: body.cupCenter, pose: pose)
+        drawFingers(scene, body: body, pose: pose)
 
         // Water from the spout is above the glass, with tiny splash droplets.
         if pose.stream > 0 {
@@ -70,7 +68,7 @@ struct DrinkingRitualScene: View {
                                   with: .color(Palette.mint.opacity(1 - p)))
             }
         }
-        if pose.relaxed > 0 { drawRelief(scene, x: personX, pose: pose) }
+        if pose.relaxed > 0 { drawRelief(scene, x: Double(body.positionX), pose: pose) }
     }
 
     private func drawKitchen(_ context: GraphicsContext, pose: DrinkingTimeline) {
@@ -127,11 +125,10 @@ struct DrinkingRitualScene: View {
         label(context, "FILTERED · 净水直饮", at: CGPoint(x: 290, y: 414), size: 9, color: Palette.mint.opacity(0.4))
     }
 
-    private func drawPerson(_ context: GraphicsContext, x: Double, cup: CGPoint, pose: DrinkingTimeline) {
-        let t = pose.time
-        let walking = (pose.time > 0.8 && pose.time < 3.9) || (pose.time > 4.9 && pose.time < 6.7)
-        let sway = walking ? sin(t * 10) * 3 : -pose.relaxed * 2
-        let leftFoot = walking ? sin(t * 10) * 12 : 0
+    private func drawPerson(_ context: GraphicsContext, body: DrinkingBodyPose, pose: DrinkingTimeline) {
+        let x = Double(body.positionX)
+        let sway = Double(body.sway)
+        let leftFoot = Double(body.stride)
         let sweater: Color = switch character {
         case .neutral: Color(hex: 0x93BFA5)
         case .woman: Color(hex: 0xC0B7D5)
@@ -219,16 +216,23 @@ struct DrinkingRitualScene: View {
         mouth.addQuadCurve(to: CGPoint(x: -11, y: 19), control: CGPoint(x: -19, y: 19 + pose.relaxed * 8))
         head.stroke(mouth, with: .color(dark.opacity(0.65)), style: StrokeStyle(lineWidth: 1.7, lineCap: .round))
 
-        // The near hand meets the glass before the character carries it away.
-        let rest = CGPoint(x: x - 45, y: 286)
-        let wrist = CGPoint(x: rest.x + (cup.x + 22 - rest.x) * pose.pickup,
-                            y: rest.y + (cup.y + 7 - rest.y) * pose.pickup)
-        let shoulder = CGPoint(x: x - 35, y: 222 + sway)
-        let elbow = CGPoint(x: (shoulder.x + wrist.x) / 2 - 15,
-                            y: max(shoulder.y, wrist.y) + 20 - pose.tilt * 7)
-        line(context, from: shoulder, to: elbow, color: sweater, width: 26)
-        line(context, from: elbow, to: wrist, color: skin, width: 17)
-        context.fill(Path(ellipseIn: CGRect(x: wrist.x - 10, y: wrist.y - 9, width: 20, height: 18)), with: .color(skin))
+        line(context, from: body.shoulder, to: body.elbow, color: sweater, width: 26)
+        line(context, from: body.elbow, to: body.wrist, color: skin, width: 17)
+        context.fill(Path(ellipseIn: CGRect(x: body.wrist.x - 9, y: body.wrist.y - 8, width: 18, height: 16)), with: .color(skin))
+    }
+
+    private func drawFingers(_ context: GraphicsContext, body: DrinkingBodyPose, pose: DrinkingTimeline) {
+        guard pose.grasp > 0 else { return }
+        var hand = context
+        hand.opacity *= pose.grasp
+        hand.translateBy(x: body.cupCenter.x, y: body.cupCenter.y)
+        hand.rotate(by: .degrees(pose.tilt * 49))
+        // The fingers wrap over the rim-side edge; the wrist behind the glass
+        // and these foreground fingers stay attached as the glass rotates.
+        for index in 0..<3 {
+            let y = CGFloat(3 + index * 4)
+            line(hand, from: CGPoint(x: 19, y: y), to: CGPoint(x: 29, y: y + 1), color: skin, width: 3.4)
+        }
     }
 
     private func drawCup(_ context: GraphicsContext, center: CGPoint, pose: DrinkingTimeline) {
