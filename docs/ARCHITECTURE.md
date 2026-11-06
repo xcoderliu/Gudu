@@ -1,0 +1,107 @@
+# 架构说明
+
+## 应用边界
+
+澄水是 SwiftUI + AppKit 原生 macOS 应用，无服务器、无网络层、无第三方动画引擎。SwiftUI 负责界面与矢量绘制，AppKit 负责菜单栏和跨显示器提醒窗口，`RippleCore` 负责可测试的计算。
+
+```text
+RippleApp
+  └─ AppDelegate
+       ├─ AppModel ─────────────── UserDefaults
+       │    └─ ReminderSchedule   纯时间计算
+       ├─ DashboardView
+       │    ├─ SettingsView
+       │    └─ WaterScene
+       ├─ NSStatusItem / NSMenu
+       └─ ReminderWindowController
+            ├─ ScreenRouter       纯屏幕坐标路由
+            └─ ReminderPanel × N
+                 └─ ReminderView ─ DrinkingRitualScene
+                      └─ shared ReminderSession
+```
+
+## 状态与计时
+
+`AppModel` 是主 actor 的 ObservableObject，持有偏好、饮水记录、当前时间、下一次提醒与当前展示状态。设置变更自动保存；只有间隔、起止时间、启用状态改变才重算计划。音效、人物、屏幕模式、容量等变更不会重置倒计时。
+
+一个加入主 run loop common mode 的 1 秒 Timer 更新倒计时并判断是否到期。计划以绝对 `Date` 保存，避免按 tick 次数累加引起漂移。展示期间不重复打开提醒。出现大于 90 秒的 tick 空档或明显倒退时，重新计算下一次提醒。
+
+锁屏、睡眠与非活跃用户会话分别记录，任意条件成立即暂停并关闭提醒。所有条件解除后重新计时。系统时钟或时区改变时也重算计划。应用退出后不留后台 daemon。
+
+### 每日窗口
+
+`ReminderSchedule` 接受 `startMinute`、`endMinute` 和间隔，以本地日历解释每日时间：
+
+- 起点包含，终点不包含。
+- 起点小于终点：同一自然日时段。
+- 起点大于终点：跨午夜时段。
+- 起点等于终点：全天。
+- 时段外的下一次提醒安排在下一起点。
+- 时段内先计算完整间隔；到达或越过当前窗口终点则移到下一起点。
+- 延后提醒使用同样规则，只把等待时长换为 5 分钟。
+
+`Calendar.nextDate` 使用 `.nextTime` 和 `.first` 处理夏令时缺失 / 重复小时。真实等待间隔按秒计，时段边界按本地墙上时间解释。
+
+### 完成行为
+
+| 事件 | 写饮水记录 | 下一次计划 |
+| --- | --- | --- |
+| 主界面 / 菜单栏记一杯 | 是 | 从当前时间重算 |
+| 正式提醒确认 | 是 | 从确认时间重算 |
+| 正式提醒延后 | 否 | 当前时间 + 5 分钟，并遵守时段 |
+| Esc / 自动退场 / 屏幕重配置 | 否 | 按设置间隔重算 |
+| 预览完成 / 关闭 | 否 | 保持原计划 |
+
+## 多屏窗口
+
+每次提醒出现时重新读取 `NSScreen.screens` 和 `NSEvent.mouseLocation`。两者使用 AppKit 的全局屏幕坐标，因此直接用 `screen.frame.contains(cursor)` 判断，正确处理左侧负坐标与上下排列；不混用 Quartz 的坐标原点。屏幕路由返回索引，便于不依赖真实硬件测试。
+
+默认选择包含鼠标的第一块屏幕。所有屏幕模式或未匹配到鼠标时，返回全部屏幕。每块屏幕使用 `frame`，覆盖菜单栏和 Dock 所在区域。
+
+窗口为无边框 nonactivating `NSPanel`，使用 `.screenSaver` 级别，以及 `.canJoinAllSpaces` / `.fullScreenAuxiliary` 等公开行为；macOS 15+ 添加 `.canJoinAllApplications`。不调用真正的系统 `toggleFullScreen`，因此不会为提醒创建新 Space。
+
+所有窗口共享一个 `ReminderSession`：相同的动画开始时间、人物、容量、截止时间与完成状态。任一屏幕确认后，其余屏幕同步完成并关闭，保证只记一杯。事件监听、音频播放器与自动关闭任务只有一份，由控制器统一撤销。窗口关闭动画结束后才清空展示状态，避免连续触发。
+
+显示器重配置时关闭当前窗口，防止窗口留在断开的屏幕上。下次提醒重新路由。
+
+## 矢量动画与声音
+
+`WaterScene` 在 400 × 400 的逻辑画布上描述玻璃杯、波面、气泡、水滴、粒子和涟漪，再等比缩放到实际尺寸。Canvas 通过路径、渐变和椭圆绘制，没有位图逐帧序列。
+
+`TimelineView(.animation)` 为水位、正弦波、下落、扩散与呼吸提供时间：
+
+- 前 3.5 秒水位缓慢升起。
+- 多层不同相位波面形成水的层次。
+- 气泡上浮，涟漪循环扩散，水滴轻轻上下浮动。
+- 全屏背景波浪单独以较低刷新频率绘制。
+- 减少动态效果启用时固定时间参数，并取消窗口淡入淡出。
+
+应用图标 PNG 是 macOS 图标资源；它们不参与动画。图标由仓库中的原生矢量绘图脚本再生成。
+
+全屏 `DrinkingRitualScene` 使用 960 × 440 逻辑画布呈现开放式厨房台面、水槽与鹅颈直饮净水龙头。人物走近接水、拿杯、倾斜喝水、放下杯子并微笑舒气。`RippleCore.DrinkingTimeline` 提供 15 秒循环动作的阶段与缓动进度，所有屏幕使用同一个开始时间。减少动态效果时固定为喝水后放松的画面。
+
+人物提供中性、女性、男性三种表现，使用同样的动作、节奏与交互，通过发型与服装配色区分。设置中的 `ReminderCharacter` 在创建提醒 Session 时固定，避免一个提醒内出现状态变化。
+
+`HydrationRitual.wav` 是与时间线同步的 15 秒合成音效：1.45 秒开始流水，7.15–8.64 秒分三次咕嘟，10.65 秒轻呼气。确认按钮播放短 `Satisfied.wav`。`AVAudioPlayer` 由窗口控制器持有，多屏不会叠加播放，关闭提醒会停止声音。系统 Reduce Motion 开启时，配合静态画面只播放一次短舒气声。音效默认关闭，可在设置启用。
+
+音频由标准库 Python 脚本离线合成，为项目原创素材，没有真人录音或第三方采样；原脚本和 WAV 一起纳入 Git。
+
+## 持久化
+
+偏好与记录分别编码为 JSON Data，写入沙盒 UserDefaults 的 `reminderSettings`、`hydrationEntries`。加载时对偏好数值范围归一化，缺失字段使用对应默认值，无法解码时使用默认设置。旧版本没有人物字段的偏好会保留其他设置并补充中性人物。饮水记录在加载与新增时清理 90 天前数据。
+
+没有云同步、用户账号和远程配置。开机启动使用 `SMAppService.mainApp`，由系统管理注册与授权状态，不自行写入 LaunchAgents。
+
+## 扩展建议
+
+- 增加其他动画主题时保留 WaterScene 的单一时间源与 Reduce Motion 入口。
+- 修改设置数据结构时提供旧字段兼容解码与迁移测试。
+- 新增统计或导出时，继续区分确认饮水与预览 / 关闭提醒。
+- 发布多语言版本时再引入 String Catalog，避免把文案散落在新增代码中。
+
+## Apple API 参考
+
+- [NSEvent.mouseLocation](https://developer.apple.com/documentation/appkit/nsevent/mouselocation)
+- [NSScreen.frame](https://developer.apple.com/documentation/appkit/nsscreen/frame)
+- [NSWindow.CollectionBehavior](https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct)
+- [SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)

@@ -1,0 +1,32 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Core tests
+        run: swift test
+      - name: Build macOS app
+        run: >-
+          xcodebuild -project Ripple.xcodeproj -scheme Ripple
+          -configuration Release -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO build
+      - name: Verify reproducible project
+        run: |
+          python3 scripts/generate_project.py
+          git diff --exit-code -- Ripple.xcodeproj
