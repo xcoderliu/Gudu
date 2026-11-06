@@ -18,7 +18,7 @@ A native macOS water reminder with configurable intervals, daily hours, a menu-b
 - Pointer-display targeting, an explicit all-display mode, and an all-display fallback when no display matches the pointer.
 - Drink confirmation, five-minute snooze, Escape to dismiss, and optional automatic dismissal.
 - After completion, the fullscreen reminder closes before a three-second vector celebration on the same displays: wide confetti cannons and an overhead shower of paper, ribbons, and stars. The transparent overlay passes through mouse input and uses a static completion toast with Reduce Motion.
-- Optional experimental camera verification: Apple Vision remembers the mouth position and checks nearby vessels even when the face is covered. Accumulating 1.2 seconds of detections completes a reminder; missed detections pause progress without resetting it.
+- Optional experimental camera verification: Apple Vision remembers the mouth position and checks nearby vessels even when the face is covered. Accumulating 1.2 seconds of weighted cup evidence completes a reminder; nearby hands can support weaker evidence at a slower rate, and missed detections pause progress without resetting it.
 - Menu-bar access even after closing the dashboard.
 - Daily intake, configurable serving size and goal, and undo for the most recent drink.
 - No overdue reminder bursts after sleep or lock; the interval restarts when the session becomes available.
@@ -57,6 +57,8 @@ For launch at login, copy the built app to Applications first. The system may re
 Enable “强制检测喝水” in settings, or try “测试摄像头识别（不记水）” first. macOS asks for camera permission. Verification runs only during a forced reminder or an explicit recognition test; ordinary animation previews never start the camera. Frames remain in local memory and are neither saved nor uploaded.
 
 Show your face once to locate the mouth, then drink normally. The last reliable mouth position remains available for the current session even when the cup hides your face. Detection requires 1.2 seconds of accumulated cup evidence. Missed detections pause progress without reducing it; exiting or retrying starts fresh. You do not need to keep your mouth visible or lower the cup.
+
+Body, rim, and tilted-cup crops help with paper and handleless cups. When multiple views contain weaker vessel evidence, nearby hand landmarks can support slower confirmation; a hand alone cannot complete a reminder. Paper cups use the generic `cup` category, not a dedicated paper-cup model. The explicit recognition test shows crop scores and classification labels; these scores are not accuracy measurements. See the [offline diagnostics example](docs/images/camera-diagnostics.png).
 
 Forced reminders disable manual confirmation, Return-to-record, snooze, and automatic dismissal. Hold Escape for two seconds for an unrecorded emergency exit, or use the close button and confirm. Camera errors offer retry and exit. The test mode never records water.
 

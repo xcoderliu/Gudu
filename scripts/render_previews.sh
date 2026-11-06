@@ -8,4 +8,4 @@ swiftc -parse-as-library -I "$bin_path/Modules" \
   "$bin_path"/RippleCore.build/*.o \
   Ripple/App/AppModel.swift Ripple/Animation/*.swift Ripple/Views/*.swift \
   Ripple/Reminder/*.swift Ripple/Camera/*.swift scripts/render_previews.swift -o .local/render_previews
-.local/render_previews "$PWD/docs/images"
+.local/render_previews "${1:-$PWD/docs/images}"

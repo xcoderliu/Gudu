@@ -3,10 +3,12 @@ import XCTest
 
 final class DrinkGestureDetectorTests: XCTestCase {
     private func run(_ detector: inout DrinkGestureDetector, from start: Int, through end: Int,
-                     confidence: Double = 0.8, faceCount: Int = 1, remembered: Bool = true) {
+                     confidence: Double = 0.8, faceCount: Int = 1, remembered: Bool = true,
+                     corroborating: Double = 0, hand: Bool = false) {
         for frame in start...end {
             detector.consume(DrinkGestureSample(faceCount: faceCount, hasRememberedMouth: remembered,
-                                                vesselConfidence: confidence), at: Double(frame) / 10)
+                                                vesselConfidence: confidence, corroboratingVesselConfidence: corroborating,
+                                                hasHandNearMouth: hand), at: Double(frame) / 10)
         }
     }
 
@@ -138,19 +140,109 @@ final class DrinkGestureDetectorTests: XCTestCase {
         run(&detector, from: 15, through: 30, confidence: 0, faceCount: 0)
         XCTAssertTrue(detector.progress.isVerified)
     }
+
+    func testPartiallyCoveredCupUsesSlowerHandSupportedEvidenceWithoutFace() {
+        var detector = DrinkGestureDetector()
+        run(&detector, from: 0, through: 12, confidence: 0.16, faceCount: 0, corroborating: 0.09, hand: true)
+        XCTAssertFalse(detector.progress.isVerified)
+        XCTAssertTrue(detector.progress.isHandAssisted)
+        XCTAssertEqual(detector.progress.fraction, 0.5, accuracy: 0.0001)
+        run(&detector, from: 13, through: 26, confidence: 0.16, faceCount: 0, corroborating: 0.09, hand: true)
+        XCTAssertTrue(detector.progress.isVerified)
+    }
+
+    func testBareHandAtMouthCannotCompleteADrink() {
+        var detector = DrinkGestureDetector()
+        run(&detector, from: 0, through: 60, confidence: 0, faceCount: 0, hand: true)
+        XCTAssertEqual(detector.progress.fraction, 0)
+        XCTAssertFalse(detector.progress.isVerified)
+    }
+
+    func testWeakCupWithoutHandDoesNotComplete() {
+        var detector = DrinkGestureDetector()
+        run(&detector, from: 0, through: 60, confidence: 0.16, corroborating: 0.09)
+        XCTAssertEqual(detector.progress.fraction, 0)
+    }
+
+    func testOneWeakCupCropAndAHandCannotComplete() {
+        var detector = DrinkGestureDetector()
+        run(&detector, from: 0, through: 60, confidence: 0.16, hand: true)
+        XCTAssertEqual(detector.progress.fraction, 0)
+    }
+
+    func testLosingHandSupportPausesAndClearCupCanResume() {
+        var detector = DrinkGestureDetector()
+        run(&detector, from: 0, through: 10, confidence: 0.16, faceCount: 0, corroborating: 0.09, hand: true)
+        let held = detector.progress.fraction
+        run(&detector, from: 11, through: 30, confidence: 0.16, faceCount: 0, corroborating: 0.09)
+        XCTAssertEqual(detector.progress.fraction, held)
+        run(&detector, from: 31, through: 45, faceCount: 0)
+        XCTAssertTrue(detector.progress.isVerified)
+    }
+
+    func testAssistedEvidenceStillRequiresInitialMouthLocation() {
+        var detector = DrinkGestureDetector()
+        run(&detector, from: 0, through: 60, confidence: 0.16, faceCount: 0, remembered: false,
+            corroborating: 0.09, hand: true)
+        XCTAssertEqual(detector.progress.stage, .findingFace)
+        XCTAssertEqual(detector.progress.fraction, 0)
+    }
 }
 
 final class DrinkingVesselLabelsTests: XCTestCase {
     func testAcceptsCupAndBottleIdentifiers() {
-        for label in ["cup", "mug", "drinking_glass", "bottle", "jug"] {
+        for label in ["cup", "mug", "drinking_glass", "bottle", "jug", "thermos"] {
             XCTAssertTrue(DrinkingVesselLabels.accepts(label))
         }
     }
 
     func testDoesNotMatchUnrelatedSubstrings() {
-        for label in ["cupcake", "eyeglasses", "hourglass", "porcupine", "raw_glass", "sunglasses", "juggling", "drink"] {
+        for label in ["cupcake", "eyeglasses", "hourglass", "porcupine", "raw_glass", "sunglasses", "juggling", "drink", "thermostat", "tea_drink", "straw_drinking"] {
             XCTAssertFalse(DrinkingVesselLabels.accepts(label))
         }
+    }
+}
+
+final class DrinkingVesselEvidenceTests: XCTestCase {
+    func testClearCupDoesNotNeedAHandOrSecondView() {
+        XCTAssertEqual(DrinkingVesselEvidence(cropConfidences: [0.3]).weight(handNearMouth: false), 1)
+    }
+
+    func testTwoWeakViewsWithNearbyHandUseHalfWeight() {
+        let evidence = DrinkingVesselEvidence(cropConfidences: [0.08, 0.16, 0.03])
+        XCTAssertEqual(evidence.strongest, 0.16)
+        XCTAssertEqual(evidence.corroborating, 0.08)
+        XCTAssertEqual(evidence.weight(handNearMouth: true), 0.5)
+    }
+
+    func testWeakViewsAloneDoNotQualify() {
+        XCTAssertEqual(DrinkingVesselEvidence(cropConfidences: [0.16, 0.08]).weight(handNearMouth: false), 0)
+    }
+
+    func testOneWeakViewIsNotCorroboration() {
+        XCTAssertEqual(DrinkingVesselEvidence(cropConfidences: [0.16]).weight(handNearMouth: true), 0)
+    }
+
+    func testTwoVeryWeakViewsDoNotQualify() {
+        for scores in [[0.09, 0.08], [0.18, 0.05]] {
+            XCTAssertEqual(DrinkingVesselEvidence(cropConfidences: scores).weight(handNearMouth: true), 0)
+        }
+    }
+
+    func testBareHandAndEmptyResultsDoNotQualify() {
+        for scores: [Double] in [[], [0, 0, 0]] {
+            XCTAssertEqual(DrinkingVesselEvidence(cropConfidences: scores).weight(handNearMouth: true), 0)
+        }
+    }
+
+    func testInvalidScoresCannotCreateCupEvidence() {
+        let evidence = DrinkingVesselEvidence(cropConfidences: [.nan, .infinity, -1, 1.2, 0.07])
+        XCTAssertEqual(evidence.weight(handNearMouth: true), 0)
+    }
+
+    func testThresholdBoundaries() {
+        XCTAssertEqual(DrinkingVesselEvidence(cropConfidences: [0.22]).weight(handNearMouth: false), 1)
+        XCTAssertEqual(DrinkingVesselEvidence(cropConfidences: [0.10, 0.06]).weight(handNearMouth: true), 0.5)
     }
 }
 

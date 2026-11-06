@@ -7,8 +7,21 @@ import Vision
 
 enum CupCameraEvent: Sendable {
     case started
-    case frame(DrinkVerificationProgress)
+    case frame(DrinkVerificationProgress, CupCameraDiagnostics)
     case failed(String)
+}
+
+struct CupCropClassification: Sendable, Equatable {
+    let kind: MouthRegion.CropKind
+    let vesselConfidence: Double
+    let dominantIdentifier: String
+    let dominantConfidence: Double
+}
+
+/// Ephemeral scores and labels for the explicit recognition test, never frames.
+struct CupCameraDiagnostics: Sendable, Equatable {
+    let crops: [CupCropClassification]
+    let hasHandNearMouth: Bool
 }
 
 /// Capture configuration and Vision run on separate serial queues. Stopping a
@@ -23,6 +36,7 @@ final class CupCameraWorker: NSObject, AVCaptureVideoDataOutputSampleBufferDeleg
     private let onEvent: @Sendable (CupCameraEvent) -> Void
     private var observers: [NSObjectProtocol] = [] // captureQueue only
     private let faceRequest = VNDetectFaceLandmarksRequest()
+    private let handRequest = VNDetectHumanHandPoseRequest()
     private let vesselRequest = VNClassifyImageRequest()
     private let cropContext = CIContext(options: [.cacheIntermediates: false])
     private var mouthMemory = MouthPositionMemory()
@@ -34,6 +48,7 @@ final class CupCameraWorker: NSObject, AVCaptureVideoDataOutputSampleBufferDeleg
         self.onEvent = onEvent
         super.init()
         vesselRequest.revision = VNClassifyImageRequestRevision1
+        handRequest.maximumHandCount = 2
     }
 
     private var isActive: Bool {
@@ -104,45 +119,69 @@ final class CupCameraWorker: NSObject, AVCaptureVideoDataOutputSampleBufferDeleg
             try handler.perform([faceRequest])
             let faces = (faceRequest.results ?? []).filter { $0.confidence >= 0.5 }
             let aspect = CGFloat(CVPixelBufferGetWidth(pixels)) / CGFloat(CVPixelBufferGetHeight(pixels))
-            var confidence = 0.0
-            // Always inspect the remembered location, even with zero detected
-            // faces. The cup covering the face is exactly the expected input.
-            if let anchor = mouthMemory.anchor,
-               let region = MouthRegion.boundingBox(mouth: anchor.mouth, faceWidth: anchor.faceWidth, imageAspectRatio: aspect) {
-                confidence = try vesselConfidence(in: pixels, region: region)
+            if mouthMemory.anchor == nil, faces.count == 1, let face = faces.first,
+               let mouth = Self.visibleMouthPosition(face) {
+                mouthMemory.remember(face: face.boundingBox, mouth: mouth)
             }
-            // While a cup is present, freeze the mouth position. Otherwise a
-            // partial face or guessed lip landmarks could move it onto the cup.
-            if confidence < 0.22, faces.count == 1, let face = faces.first,
-               let mouth = Self.visibleMouthPosition(face),
-               mouthMemory.remember(face: face.boundingBox, mouth: mouth),
-               let anchor = mouthMemory.anchor,
-               let region = MouthRegion.boundingBox(mouth: anchor.mouth, faceWidth: anchor.faceWidth, imageAspectRatio: aspect) {
-                confidence = try vesselConfidence(in: pixels, region: region)
+            var classifications: [CupCropClassification] = []
+            if let anchor = mouthMemory.anchor {
+                // These views retain the cup body, visible rim, and tilted glass
+                // separately. Never require a handle or currently visible lips.
+                for crop in MouthRegion.classificationCrops(mouth: anchor.mouth, faceWidth: anchor.faceWidth, imageAspectRatio: aspect) {
+                    classifications.append(try classify(in: pixels, crop: crop))
+                    if classifications.last!.vesselConfidence >= DrinkingVesselEvidence.clearThreshold { break }
+                }
             }
-            let sample = DrinkGestureSample(faceCount: faces.count,
-                                             hasRememberedMouth: mouthMemory.anchor != nil,
-                                             vesselConfidence: confidence)
-            consecutiveErrors = 0
+            let evidence = DrinkingVesselEvidence(cropConfidences: classifications.map(\.vesselConfidence))
+            var handNearMouth = false
+            if !evidence.isClear, evidence.supportsHandAssistance, let anchor = mouthMemory.anchor {
+                // Hand pose is optional support for weak *cup* evidence. If it
+                // fails, direct cup classification remains available next frame.
+                if (try? handler.perform([handRequest])) != nil {
+                    handNearMouth = (handRequest.results ?? []).contains { hand in
+                        guard let points = try? hand.recognizedPoints(.all) else { return false }
+                        let joints = points.values.filter { $0.confidence >= 0.3 }.map(\.location)
+                        return MouthRegion.hasNearbyHand(joints: joints, mouth: anchor.mouth,
+                                                         faceWidth: anchor.faceWidth, imageAspectRatio: aspect)
+                    }
+                }
+            }
+            let sample = DrinkGestureSample(faceCount: faces.count, hasRememberedMouth: mouthMemory.anchor != nil,
+                                             vesselConfidence: evidence.strongest,
+                                             corroboratingVesselConfidence: evidence.corroborating,
+                                             hasHandNearMouth: handNearMouth)
             let progress = detector.consume(sample, at: time)
-            if isActive { onEvent(.frame(progress)) }
+            // Freeze even a partial cup location. With no cup evidence, update
+            // clear face coordinates for the next frame without classifying twice.
+            if evidence.strongest < DrinkingVesselEvidence.partialThreshold, faces.count == 1, let face = faces.first,
+               let mouth = Self.visibleMouthPosition(face) {
+                mouthMemory.remember(face: face.boundingBox, mouth: mouth)
+            }
+            consecutiveErrors = 0
+            if isActive { onEvent(.frame(progress, CupCameraDiagnostics(crops: classifications, hasHandNearMouth: handNearMouth))) }
         } catch {
             consecutiveErrors += 1
             if consecutiveErrors >= 5 { fail("暂时无法分析画面，请改善光线或调整摄像头后重试。") }
         }
     }
 
-    private func vesselConfidence(in pixels: CVPixelBuffer, region: CGRect) throws -> Double {
+    private func classify(in pixels: CVPixelBuffer, crop: MouthRegion.Crop) throws -> CupCropClassification {
         let image = CIImage(cvPixelBuffer: pixels)
+        let region = crop.bounds
         let rectangle = CGRect(x: region.minX * image.extent.width, y: region.minY * image.extent.height,
                                width: region.width * image.extent.width, height: region.height * image.extent.height)
             .integral.intersection(image.extent)
-        guard let crop = cropContext.createCGImage(image, from: rectangle) else { return 0 }
+        guard let imageCrop = cropContext.createCGImage(image, from: rectangle) else {
+            return CupCropClassification(kind: crop.kind, vesselConfidence: 0, dominantIdentifier: "", dominantConfidence: 0)
+        }
         // Materialize each crop, so the classifier sees only this patch of pixels
         // rather than depending on a request's interpretation of regionOfInterest.
-        try VNImageRequestHandler(cgImage: crop, orientation: .up).perform([vesselRequest])
-        return Double((vesselRequest.results ?? []).filter { DrinkingVesselLabels.accepts($0.identifier) }
-            .map(\.confidence).max() ?? 0)
+        try VNImageRequestHandler(cgImage: imageCrop, orientation: .up).perform([vesselRequest])
+        let results = vesselRequest.results ?? []
+        let vessel = results.filter { DrinkingVesselLabels.accepts($0.identifier) }.map(\.confidence).max() ?? 0
+        let dominant = results.max { $0.confidence < $1.confidence }
+        return CupCropClassification(kind: crop.kind, vesselConfidence: Double(vessel),
+                                     dominantIdentifier: dominant?.identifier ?? "", dominantConfidence: Double(dominant?.confidence ?? 0))
     }
 
     private static func visibleMouthPosition(_ face: VNFaceObservation) -> CGPoint? {

@@ -5,6 +5,7 @@ import SwiftUI
 
 struct CameraVerificationPanel: View {
     @ObservedObject var camera: DrinkCameraVerifier
+    var showDiagnostics = false
 
     var body: some View {
         HStack(spacing: 18) {
@@ -30,6 +31,9 @@ struct CameraVerificationPanel: View {
                 if case .tracking(let progress) = camera.state {
                     ProgressView(value: progress.fraction).tint(Palette.mint)
                         .accessibilityLabel("杯子靠近嘴边的识别进度")
+                }
+                if showDiagnostics, let diagnostics = camera.diagnostics, !diagnostics.crops.isEmpty {
+                    CameraDiagnosticsView(diagnostics: diagnostics)
                 }
                 if camera.state.isUnavailable {
                     Button("重试摄像头") { camera.start() }
@@ -73,11 +77,33 @@ struct CameraVerificationPanel: View {
             case .findingFace: "先露出面部定位一次，再正常喝水。"
             case .multiplePeople: "请让画面中只保留一人，再尝试识别。"
             case .bringCup: "正常举杯即可，遮住面部也会保留位置与进度。"
-            case .holding: "正在确认记住位置附近的杯子，无需露出嘴巴。"
+            case .holding:
+                progress.isHandAssisted ? "正在结合杯口与手部线索确认，进度会慢一些。" : "正在确认记住位置附近的杯子，无需露出嘴巴。"
             case .verified: "即将完成本次提醒。"
             }
         default: "先定位嘴部，再正常喝水，累计识别 1.2 秒即可完成。"
         }
+    }
+}
+
+struct CameraDiagnosticsView: View {
+    let diagnostics: CupCameraDiagnostics
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(diagnostics.crops.map { "\(name($0.kind)) \(Int($0.vesselConfidence * 100))%" }.joined(separator: " · "))
+                .monospacedDigit()
+            if let crop = diagnostics.crops.max(by: { $0.vesselConfidence < $1.vesselConfidence }) {
+                Text("分类：\(crop.dominantIdentifier.isEmpty ? "暂无" : crop.dominantIdentifier) \(Int(crop.dominantConfidence * 100))% · 手部辅助\(diagnostics.hasHandNearMouth ? "中" : "未启用")")
+                    .lineLimit(2)
+            }
+        }
+        .font(.system(size: 10)).foregroundStyle(Palette.mint.opacity(0.65))
+        .accessibilityLabel("识别测试的杯具线索分数，分数不是准确率")
+    }
+
+    private func name(_ kind: MouthRegion.CropKind) -> String {
+        switch kind { case .body: "杯身"; case .rim: "杯口"; case .tilted: "倾斜" }
     }
 }
 

@@ -36,6 +36,57 @@ final class MouthRegionTests: XCTestCase {
         XCTAssertNil(MouthRegion.boundingBox(mouth: CGPoint(x: 0.5, y: 0.5), faceWidth: 0.2, imageAspectRatio: 0))
     }
 
+    func testAllThreeViewsContainTheRememberedMouth() {
+        let mouth = CGPoint(x: 0.5, y: 0.65)
+        let crops = MouthRegion.classificationCrops(mouth: mouth, faceWidth: 0.2, imageAspectRatio: 1.3)
+        XCTAssertEqual(crops.map(\.kind), [.body, .rim, .tilted])
+        XCTAssertTrue(crops.allSatisfy { $0.bounds.contains(mouth) })
+    }
+
+    func testRimViewExcludesTheLowerGrippingHand() throws {
+        let crops = MouthRegion.classificationCrops(mouth: CGPoint(x: 0.5, y: 0.7), faceWidth: 0.2, imageAspectRatio: 1.3)
+        let lowerGrip = CGPoint(x: 0.5, y: 0.52)
+        XCTAssertTrue(try XCTUnwrap(crops.first { $0.kind == .body }).bounds.contains(lowerGrip))
+        XCTAssertFalse(try XCTUnwrap(crops.first { $0.kind == .rim }).bounds.contains(lowerGrip))
+    }
+
+    func testTiltedViewIncludesCupAboveTheStandardCrop() throws {
+        let crops = MouthRegion.classificationCrops(mouth: CGPoint(x: 0.5, y: 0.65), faceWidth: 0.2, imageAspectRatio: 1.3)
+        let tiltedBase = CGPoint(x: 0.5, y: 0.81)
+        XCTAssertFalse(try XCTUnwrap(crops.first { $0.kind == .body }).bounds.contains(tiltedBase))
+        XCTAssertTrue(try XCTUnwrap(crops.first { $0.kind == .tilted }).bounds.contains(tiltedBase))
+    }
+
+    func testCropsAtImageEdgesStayClippedAndDistinct() {
+        for mouth in [CGPoint(x: 0.01, y: 0.01), CGPoint(x: 0.99, y: 0.99)] {
+            let crops = MouthRegion.classificationCrops(mouth: mouth, faceWidth: 0.25, imageAspectRatio: 1.5)
+            for (index, crop) in crops.enumerated() {
+                XCTAssertTrue(CGRect(x: 0, y: 0, width: 1, height: 1).contains(crop.bounds))
+                XCTAssertFalse(crops.prefix(index).contains { $0.bounds == crop.bounds })
+            }
+        }
+    }
+
+    func testInvalidGeometryDoesNotProduceClassificationCrops() {
+        XCTAssertTrue(MouthRegion.classificationCrops(mouth: CGPoint(x: 0.5, y: 0.5), faceWidth: 0, imageAspectRatio: 1.3).isEmpty)
+        XCTAssertTrue(MouthRegion.classificationCrops(mouth: CGPoint(x: CGFloat.nan, y: 0.5), faceWidth: 0.2, imageAspectRatio: 1.3).isEmpty)
+    }
+
+    func testSeveralHandJointsNearTheMouthQualify() {
+        let joints = [CGPoint(x: 0.48, y: 0.6), CGPoint(x: 0.5, y: 0.58), CGPoint(x: 0.52, y: 0.57)]
+        XCTAssertTrue(MouthRegion.hasNearbyHand(joints: joints, mouth: CGPoint(x: 0.5, y: 0.7), faceWidth: 0.2, imageAspectRatio: 1.3))
+    }
+
+    func testOneOrTwoJointsDoNotSupplyHandSupport() {
+        let joints = [CGPoint(x: 0.48, y: 0.6), CGPoint(x: 0.5, y: 0.58)]
+        XCTAssertFalse(MouthRegion.hasNearbyHand(joints: joints, mouth: CGPoint(x: 0.5, y: 0.7), faceWidth: 0.2, imageAspectRatio: 1.3))
+    }
+
+    func testDistantOrInvalidHandJointsDoNotQualify() {
+        let joints = [CGPoint(x: 0.1, y: 0.1), CGPoint(x: 0.12, y: 0.1), CGPoint(x: 0.13, y: 0.12), CGPoint(x: CGFloat.nan, y: 0.6)]
+        XCTAssertFalse(MouthRegion.hasNearbyHand(joints: joints, mouth: CGPoint(x: 0.5, y: 0.7), faceWidth: 0.2, imageAspectRatio: 1.3))
+    }
+
 }
 
 final class MouthPositionMemoryTests: XCTestCase {

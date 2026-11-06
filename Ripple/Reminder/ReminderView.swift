@@ -62,7 +62,7 @@ struct ReminderView: View {
                             .foregroundStyle(Palette.mint.opacity(0.52))
                             .padding(.top, 17)
                         if session.requiresVerification {
-                            CameraVerificationPanel(camera: session.camera).frame(width: 620).padding(.top, 22)
+                            CameraVerificationPanel(camera: session.camera, showDiagnostics: session.isPreview).frame(width: 620).padding(.top, 22)
                                 .opacity(session.completed ? 0 : 1).disabled(session.completed)
                         } else { HStack(spacing: 14) {
                             Button { onAction(.drank) } label: {

@@ -103,6 +103,8 @@ python3 scripts/make_sounds.py
 
 该脚本从视图渲染图片，不读取屏幕像素，也不改动真实应用的饮水数据。`docs/images/` 中的图片属于应用视图渲染，真实界面还包含 macOS 窗口边框。
 
+可以给脚本传入输出目录，例如 `./scripts/render_previews.sh "$PWD/.local/previews"`，避免覆盖文档插图。`camera-diagnostics.png` 使用虚构分数展示测试页的诊断组件，不包含真实摄像头画面或实测识别结果。
+
 检查拿杯动作与撒花，可执行 `./scripts/render_motion.sh`，在 `.local/` 导出 `pickup-motion.gif`、拿杯六帧对照图、`confetti-motion.gif`、透明撒花 PNG 与减少动态效果的静态提示 PNG。撒花 GIF 的渐变背景仅用于展示透明叠加效果，不是桌面截图。它们直接使用应用的矢量代码渲染，属于开发用配图，不会被打包为应用动画。
 
 ## 开发约定

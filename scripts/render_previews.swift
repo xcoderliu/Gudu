@@ -53,6 +53,18 @@ struct PreviewRenderer {
         let verification = ReminderSession(preview: true, servingML: 250, seconds: 30, requiresVerification: true)
         try export(ReminderView(session: verification, onAction: { _ in }).frame(width: 1440, height: 900),
                    size: NSSize(width: 1440, height: 900), name: "camera-verification.png")
+        let diagnostics = CupCameraDiagnostics(crops: [
+            CupCropClassification(kind: .body, vesselConfidence: 0.11, dominantIdentifier: "person", dominantConfidence: 0.58),
+            CupCropClassification(kind: .rim, vesselConfidence: 0.16, dominantIdentifier: "cup", dominantConfidence: 0.16),
+            CupCropClassification(kind: .tilted, vesselConfidence: 0.09, dominantIdentifier: "cup", dominantConfidence: 0.09)
+        ], hasHandNearMouth: true)
+        let diagnosticsCard = VStack(alignment: .leading, spacing: 12) {
+            Text("识别测试 · 杯具线索").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.mint)
+            CameraDiagnosticsView(diagnostics: diagnostics)
+            Text("离线示例分数，不代表实际识别准确率，不含摄像头画面。")
+                .font(.system(size: 10)).foregroundStyle(Palette.mint.opacity(0.45))
+        }.padding(22).frame(width: 620, height: 132, alignment: .leading).background(Palette.ocean)
+        try export(diagnosticsCard, size: NSSize(width: 620, height: 132), name: "camera-diagnostics.png")
         let characters = HStack(spacing: 0) {
             ForEach(ReminderCharacter.allCases) { character in
                 VStack(spacing: 8) {

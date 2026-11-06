@@ -4,11 +4,16 @@ public struct DrinkGestureSample: Sendable {
     public var faceCount: Int
     public var hasRememberedMouth: Bool
     public var vesselConfidence: Double
+    public var corroboratingVesselConfidence: Double
+    public var hasHandNearMouth: Bool
 
-    public init(faceCount: Int = 1, hasRememberedMouth: Bool = false, vesselConfidence: Double) {
+    public init(faceCount: Int = 1, hasRememberedMouth: Bool = false, vesselConfidence: Double,
+                corroboratingVesselConfidence: Double = 0, hasHandNearMouth: Bool = false) {
         self.faceCount = faceCount
         self.hasRememberedMouth = hasRememberedMouth
         self.vesselConfidence = vesselConfidence
+        self.corroboratingVesselConfidence = corroboratingVesselConfidence
+        self.hasHandNearMouth = hasHandNearMouth
     }
 }
 
@@ -19,11 +24,13 @@ public enum DrinkVerificationStage: Sendable, Equatable {
 public struct DrinkVerificationProgress: Sendable, Equatable {
     public let stage: DrinkVerificationStage
     public let fraction: Double
+    public let isHandAssisted: Bool
     public var isVerified: Bool { stage == .verified }
 
-    public init(stage: DrinkVerificationStage, fraction: Double = 0) {
+    public init(stage: DrinkVerificationStage, fraction: Double = 0, isHandAssisted: Bool = false) {
         self.stage = stage
         self.fraction = min(max(fraction, 0), 1)
+        self.isHandAssisted = isHandAssisted
     }
 }
 
@@ -51,16 +58,19 @@ public struct DrinkGestureDetector: Sendable {
         guard hasMouthLocation else {
             return set(sample.faceCount > 1 ? .multiplePeople : .findingFace)
         }
-        guard sample.vesselConfidence.isFinite, sample.vesselConfidence >= 0.22 else {
+        let evidence = DrinkingVesselEvidence(cropConfidences: [sample.vesselConfidence, sample.corroboratingVesselConfidence])
+        let weight = evidence.weight(handNearMouth: sample.hasHandNearMouth)
+        guard weight > 0 else {
             return set(.bringCup)
         }
-        holding += delta
-        if holding >= Self.requiredEvidenceDuration { return set(.verified) }
-        return set(.holding)
+        holding += delta * weight
+        if holding >= Self.requiredEvidenceDuration { return set(.verified, assisted: weight < 1) }
+        return set(.holding, assisted: weight < 1)
     }
 
-    private mutating func set(_ stage: DrinkVerificationStage) -> DrinkVerificationProgress {
-        progress = DrinkVerificationProgress(stage: stage, fraction: stage == .verified ? 1 : holding / Self.requiredEvidenceDuration)
+    private mutating func set(_ stage: DrinkVerificationStage, assisted: Bool = false) -> DrinkVerificationProgress {
+        progress = DrinkVerificationProgress(stage: stage, fraction: stage == .verified ? 1 : holding / Self.requiredEvidenceDuration,
+                                            isHandAssisted: assisted)
         return progress
     }
 }

@@ -2,6 +2,41 @@ import CoreGraphics
 import Foundation
 
 public enum MouthRegion {
+    public enum CropKind: String, Sendable { case body, rim, tilted }
+    public struct Crop: Sendable {
+        public let kind: CropKind
+        public let bounds: CGRect
+    }
+
+    public static func classificationCrops(mouth: CGPoint, faceWidth: CGFloat, imageAspectRatio: CGFloat) -> [Crop] {
+        guard let body = boundingBox(mouth: mouth, faceWidth: faceWidth, imageAspectRatio: imageAspectRatio) else { return [] }
+        var crops = [Crop(kind: .body, bounds: body)]
+        let verticalScale = faceWidth * imageAspectRatio
+        // The rim view excludes most of the gripping hand. The tilted view
+        // includes the glass base when a handleless cup is tipped upward.
+        let candidates: [(CropKind, CGRect)] = [
+            (.rim, CGRect(x: mouth.x - faceWidth * 0.575, y: mouth.y - verticalScale * 0.38,
+                          width: faceWidth * 1.15, height: verticalScale * 0.75)),
+            (.tilted, CGRect(x: mouth.x - faceWidth * 0.8, y: mouth.y - verticalScale * 0.55,
+                             width: faceWidth * 1.6, height: verticalScale * 1.4))
+        ]
+        for (kind, rectangle) in candidates {
+            guard rectangle.minX.isFinite, rectangle.minY.isFinite, rectangle.width.isFinite, rectangle.height.isFinite else { continue }
+            let bounds = rectangle.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+            guard !bounds.isNull, bounds.width > 0.02, bounds.height > 0.02,
+                  !crops.contains(where: { $0.bounds == bounds }) else { continue }
+            crops.append(Crop(kind: kind, bounds: bounds))
+        }
+        return crops
+    }
+
+    /// Vision has already filtered these joints by confidence. Require several
+    /// joints in the mouth/cup area, not just a hand somewhere in the frame.
+    public static func hasNearbyHand(joints: [CGPoint], mouth: CGPoint, faceWidth: CGFloat, imageAspectRatio: CGFloat) -> Bool {
+        guard let bounds = boundingBox(mouth: mouth, faceWidth: faceWidth, imageAspectRatio: imageAspectRatio) else { return false }
+        return joints.filter { $0.x.isFinite && $0.y.isFinite && bounds.contains($0) }.count >= 3
+    }
+
     public static func boundingBox(mouth: CGPoint, faceWidth: CGFloat, imageAspectRatio: CGFloat) -> CGRect? {
         guard mouth.x.isFinite, mouth.y.isFinite, faceWidth.isFinite, imageAspectRatio.isFinite,
               (0...1).contains(mouth.x), (0...1).contains(mouth.y),

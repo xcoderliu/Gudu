@@ -10,7 +10,7 @@
 
 ## 权限
 
-- **摄像头（可选）**：仅在开启强制检测的正式提醒，或主动点击识别测试时申请和使用。默认关闭，普通动画预览不使用摄像头。AVFoundation 提供画面，Vision 仅在本机分析人脸关键点和嘴部区域的杯具分类。画面只存在于内存中，不录像、不保存、不上传，也不进行身份识别；不请求麦克风权限。关闭开关、提醒完成、退出、锁屏或睡眠时停止采集。
+- **摄像头（可选）**：仅在开启强制检测的正式提醒，或主动点击识别测试时申请和使用。默认关闭，普通动画预览不使用摄像头。AVFoundation 提供画面，Vision 仅在本机分析人脸关键点、需要辅助时的手部关键点，以及嘴部附近的杯具分类。测试界面中的分类名称与线索分数也只在本次会话内存中显示，不写日志。画面只存在于内存中，不录像、不保存、不上传，也不进行身份识别；不请求麦克风权限。关闭开关、提醒完成、退出、锁屏或睡眠时停止采集。
 - **不需要辅助功能权限**：使用公开的鼠标坐标查询，不监听系统全局输入。
 - **不需要屏幕录制权限**：根据显示器的几何范围确定选屏，不读取屏幕像素。
 - **不需要通知权限**：提醒由应用自己的窗口呈现。
@@ -29,6 +29,6 @@ Ripple stores reminder preferences and drink entries locally using sandboxed mac
 
 The app does not require Accessibility, Screen Recording, or Notifications permission. It reads display geometry and the current pointer position, without capturing screen pixels or monitoring global keyboard input. The sandbox does not include network client/server entitlements.
 
-Optional camera verification requests Camera permission only during a forced reminder or an explicit recognition test. It is off by default; ordinary animation previews do not start the camera. AVFoundation supplies frames and Vision processes face landmarks and vessels in the mouth region locally. Frames remain in memory, are not recorded, saved, or uploaded, and are not used for identity recognition. No microphone permission is requested. Capture stops when the reminder finishes or is dismissed, and when the Mac session becomes unavailable.
+Optional camera verification requests Camera permission only during a forced reminder or an explicit recognition test. It is off by default; ordinary animation previews do not start the camera. AVFoundation supplies frames and Vision processes face landmarks, optional supporting hand landmarks, and vessels near the mouth locally. Test-mode scores and labels remain in session memory and are not logged. Frames remain in memory, are not recorded, saved, or uploaded, and are not used for identity recognition. No microphone permission is requested. Capture stops when the reminder finishes or is dismissed, and when the Mac session becomes unavailable.
 
 Launch at login is optional and uses the system-managed SMAppService API. Users can disable it in the app or System Settings. Nothing is shared with the developer. Removing the app's sandbox container after quitting deletes local preferences and history as well.

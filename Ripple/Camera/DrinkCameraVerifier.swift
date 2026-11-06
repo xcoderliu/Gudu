@@ -18,6 +18,7 @@ enum CameraVerificationState: Equatable {
 @MainActor
 final class DrinkCameraVerifier: ObservableObject {
     @Published private(set) var state = CameraVerificationState.idle
+    @Published private(set) var diagnostics: CupCameraDiagnostics?
     var onVerified: (() -> Void)?
     var onPermissionPrompt: ((Bool) -> Void)?
     var previewSession: AVCaptureSession? { worker?.session }
@@ -60,7 +61,7 @@ final class DrinkCameraVerifier: ObservableObject {
         worker?.stop()
         worker = nil
         onPermissionPrompt?(false)
-        if !keepState { state = .idle }
+        if !keepState { state = .idle; diagnostics = nil }
     }
 
     private func beginCapture(token: UUID) {
@@ -72,9 +73,11 @@ final class DrinkCameraVerifier: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self, self.token == token else { return }
                 switch event {
-                case .started: self.state = .tracking(DrinkVerificationProgress(stage: .findingFace))
-                case .frame(let progress):
+                case .started:
+                    if case .starting = self.state { self.state = .tracking(DrinkVerificationProgress(stage: .findingFace)) }
+                case .frame(let progress, let diagnostics):
                     self.lastFrameAt = Date()
+                    self.diagnostics = diagnostics
                     if progress.isVerified {
                         self.state = .verified
                         self.stop(keepState: true)
