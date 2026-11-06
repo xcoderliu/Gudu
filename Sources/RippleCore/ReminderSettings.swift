@@ -18,6 +18,7 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
     public var servingML: Int
     public var dailyGoalML: Int
     public var requireDrinkVerification: Bool
+    public var weekdays: Set<ReminderWeekday>
 
     public init(
         intervalMinutes: Int = 45,
@@ -29,7 +30,8 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         autoDismissSeconds: Int = 30,
         servingML: Int = 250,
         dailyGoalML: Int = 2000,
-        requireDrinkVerification: Bool = false
+        requireDrinkVerification: Bool = false,
+        weekdays: Set<ReminderWeekday> = ReminderWeekday.everyDay
     ) {
         self.intervalMinutes = intervalMinutes
         self.startMinute = startMinute
@@ -41,12 +43,13 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         self.servingML = servingML
         self.dailyGoalML = dailyGoalML
         self.requireDrinkVerification = requireDrinkVerification
+        self.weekdays = weekdays
         normalize()
     }
 
     private enum CodingKeys: String, CodingKey {
         case intervalMinutes, startMinute, endMinute, isEnabled, displayMode
-        case soundEnabled, autoDismissSeconds, servingML, dailyGoalML, requireDrinkVerification
+        case soundEnabled, autoDismissSeconds, servingML, dailyGoalML, requireDrinkVerification, weekdays
     }
 
     public init(from decoder: Decoder) throws {
@@ -61,7 +64,9 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
             autoDismissSeconds: try values.decodeIfPresent(Int.self, forKey: .autoDismissSeconds) ?? 30,
             servingML: try values.decodeIfPresent(Int.self, forKey: .servingML) ?? 250,
             dailyGoalML: try values.decodeIfPresent(Int.self, forKey: .dailyGoalML) ?? 2000,
-            requireDrinkVerification: try values.decodeIfPresent(Bool.self, forKey: .requireDrinkVerification) ?? false
+            requireDrinkVerification: try values.decodeIfPresent(Bool.self, forKey: .requireDrinkVerification) ?? false,
+            weekdays: try values.decodeIfPresent([Int].self, forKey: .weekdays)
+                .map { Set($0.compactMap(ReminderWeekday.init(rawValue:))) } ?? ReminderWeekday.everyDay
         )
     }
 
@@ -75,12 +80,12 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
     }
 
     public var schedule: ReminderSchedule {
-        ReminderSchedule(startMinute: startMinute, endMinute: endMinute, intervalMinutes: intervalMinutes)
+        ReminderSchedule(startMinute: startMinute, endMinute: endMinute, intervalMinutes: intervalMinutes, weekdays: weekdays)
     }
 
     public func hasSameSchedule(as other: Self) -> Bool {
         intervalMinutes == other.intervalMinutes && startMinute == other.startMinute &&
-        endMinute == other.endMinute && isEnabled == other.isEnabled
+        endMinute == other.endMinute && isEnabled == other.isEnabled && weekdays == other.weekdays
     }
 }
 

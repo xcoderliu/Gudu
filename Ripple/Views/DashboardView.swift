@@ -138,7 +138,7 @@ struct DashboardView: View {
             Card {
                 VStack(alignment: .leading, spacing: 19) {
                     HStack {
-                        SectionHeading(title: "今天的喝水节奏")
+                        SectionHeading(title: "每周的喝水节奏", subtitle: "提醒日：\(model.weekdaysSummary)")
                         Spacer()
                         Button("调整提醒  ↗") { tab = .settings }
                             .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Palette.accent)

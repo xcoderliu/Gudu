@@ -13,6 +13,7 @@ final class SettingsPersistenceTests: XCTestCase {
         XCTAssertFalse(settings.isEnabled)
         XCTAssertEqual(settings.servingML, 300)
         XCTAssertFalse(settings.requireDrinkVerification)
+        XCTAssertEqual(settings.weekdays, ReminderWeekday.everyDay)
     }
 
     func testLegacyCharacterValuesAreIgnoredWithoutResettingPreferences() throws {
@@ -49,5 +50,41 @@ final class SettingsPersistenceTests: XCTestCase {
         XCTAssertTrue(settings.hasSameSchedule(as: before))
         let restored = try JSONDecoder().decode(ReminderSettings.self, from: JSONEncoder().encode(settings))
         XCTAssertTrue(restored.requireDrinkVerification)
+    }
+
+    func testWeekdaySelectionsRoundTrip() throws {
+        for days in [ReminderWeekday.workdays, ReminderWeekday.weekend, [.monday, .wednesday, .saturday]] {
+            let settings = ReminderSettings(intervalMinutes: 30, soundEnabled: true, weekdays: days)
+            let restored = try JSONDecoder().decode(ReminderSettings.self, from: JSONEncoder().encode(settings))
+            XCTAssertEqual(restored, settings)
+            XCTAssertEqual(restored.schedule.weekdays, days)
+        }
+    }
+
+    func testChangingWeekdaysChangesTheSchedule() {
+        var settings = ReminderSettings()
+        let before = settings
+        settings.weekdays = ReminderWeekday.workdays
+        XCTAssertFalse(settings.hasSameSchedule(as: before))
+    }
+
+    func testEmptyWeekdaysStayEmptyWhenSaved() throws {
+        let settings = ReminderSettings(weekdays: [])
+        let restored = try JSONDecoder().decode(ReminderSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertTrue(restored.weekdays.isEmpty)
+        XCTAssertNil(restored.schedule.nextReminder(after: Date()))
+    }
+
+    func testUnknownWeekdayNumbersAreIgnoredWithoutResettingOtherValues() throws {
+        let data = Data(#"{"intervalMinutes":30,"servingML":300,"weekdays":[0,2,2,6,8]}"#.utf8)
+        let restored = try JSONDecoder().decode(ReminderSettings.self, from: data)
+        XCTAssertEqual(restored.weekdays, [.monday, .friday])
+        XCTAssertEqual(restored.intervalMinutes, 30)
+        XCTAssertEqual(restored.servingML, 300)
+    }
+
+    func testNullWeekdaysKeepTheLegacyEveryDayDefault() throws {
+        let restored = try JSONDecoder().decode(ReminderSettings.self, from: Data(#"{"weekdays":null}"#.utf8))
+        XCTAssertEqual(restored.weekdays, ReminderWeekday.everyDay)
     }
 }

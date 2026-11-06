@@ -64,7 +64,7 @@ final class AppModel: ObservableObject {
     var progress: Double { min(Double(todayML) / Double(settings.dailyGoalML), 1) }
 
     var countdown: String {
-        guard let nextReminder else { return "已暂停" }
+        guard let nextReminder else { return settings.isEnabled && settings.weekdays.isEmpty ? "未选提醒日" : "已暂停" }
         let seconds = max(0, Int(ceil(nextReminder.timeIntervalSince(now))))
         if seconds >= 3600 {
             return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
@@ -75,8 +75,25 @@ final class AppModel: ObservableObject {
     var statusText: String {
         if !settings.isEnabled { return "给自己一点自由，准备好再继续" }
         if isScreenUnavailable { return "休息中，解锁后继续陪伴" }
-        if !settings.schedule.isActive(at: now) { return "安静时段，下一次从开始时间提醒" }
+        if settings.weekdays.isEmpty { return "未选择提醒日期，自动提醒已暂停" }
+        if !settings.schedule.isActive(at: now) { return "安静时段，等待下次提醒安排" }
         return "下一次喝水，正在轻轻靠近"
+    }
+
+    var weekdaysSummary: String {
+        let days = settings.weekdays
+        if days.isEmpty { return "未选择提醒日" }
+        if days == ReminderWeekday.everyDay { return "每天" }
+        if days == ReminderWeekday.workdays { return "周一至周五" }
+        if days == ReminderWeekday.weekend { return "周六、周日" }
+        return ReminderWeekday.allCases.filter(days.contains).map(Self.weekdayLabel).joined(separator: "、")
+    }
+
+    static func weekdayLabel(_ day: ReminderWeekday) -> String {
+        switch day {
+        case .monday: "周一"; case .tuesday: "周二"; case .wednesday: "周三"; case .thursday: "周四"
+        case .friday: "周五"; case .saturday: "周六"; case .sunday: "周日"
+        }
     }
 
     func reschedule(delay: TimeInterval? = nil) {

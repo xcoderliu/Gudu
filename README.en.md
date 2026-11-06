@@ -12,6 +12,7 @@ A native macOS water reminder with configurable intervals, daily hours, a menu-b
 
 - Reminder intervals from 1 to 240 minutes, with quick presets.
 - Daily start/end times, overnight schedules, and an all-day option when both times match.
+- Select any weekdays, with Monday–Friday, weekend, and every-day presets. Selecting no days pauses automatic reminders.
 - Resolution-independent SwiftUI Canvas animation: a calm dashboard glass and a full-screen open-kitchen ritual with a filtered-water tap, filling a cup, sipping, and a relieved exhale.
 - One mint bean mascot with dot eyes and short limbs, drawn with simple vector paths. There are no gender or character options.
 - Optional synchronized pouring, gulping, and sigh sound effects, synthesized offline. Multiple displays share one audio player.
@@ -44,7 +45,9 @@ The app is built at `build/Build/Products/Debug/Ripple.app`.
 
 ## Behavior
 
-The default schedule is **09:00–21:00, every 45 minutes**. Launching inside the window starts a full interval; launching outside it schedules the next reminder at the next start time. The end time is exclusive. A reminder that would cross the end moves to the next start, including a snoozed reminder.
+The default schedule is **every day, 09:00–21:00, every 45 minutes**. Older preferences without a weekday selection keep this behavior. Choose days individually or use Monday–Friday, weekend, or every-day presets. No selected days means no automatic reminders; manual recording and previews remain available.
+
+Launching inside an active window starts a full interval; launching outside it schedules the next reminder at the next selected window's start. The end time is exclusive, including for snoozes. Overnight windows belong to their start day: Friday 22:00–02:00 continues into Saturday. Equal start/end times activate the entire selected calendar date, starting at midnight.
 
 Previewing the animation neither records water nor changes the schedule. Confirming a real reminder records one serving. Dismissing or timing out never records a drink. Closing the dashboard keeps the app running in the menu bar; quitting stops reminders.
 

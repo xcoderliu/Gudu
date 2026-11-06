@@ -4,7 +4,7 @@
 
 ## 本机保存
 
-澄水只在本机保存：提醒间隔、每日时段、屏幕偏好、摄像头检测开关、音效 / 退场设置、每杯容量、每日目标，以及包含时间与水量的饮水记录。动画统一为豆豆小人，没有性别或人物选择。旧版 `character` 字段在读取时忽略，后续保存不再写入。加载应用和新增记录时会清理 90 天前的饮水记录。当天统计按照 Mac 当前的本地日历计算。
+澄水只在本机保存：提醒间隔、每周提醒日、每日时段、屏幕偏好、摄像头检测开关、音效 / 退场设置、每杯容量、每日目标，以及包含时间与水量的饮水记录。每周提醒日仅是用户选中的星期，不获取日历、公司考勤或节假日数据。动画统一为豆豆小人，没有性别或人物选择。旧版 `character` 字段在读取时忽略，后续保存不再写入。加载应用和新增记录时会清理 90 天前的饮水记录。当天统计按照 Mac 当前的本地日历计算。
 
 这些数据通过 macOS 沙盒 UserDefaults 保存，默认 Bundle ID 为 `local.ripple.WaterReminder`，偏好位于对应沙盒容器中。应用没有登录、账户、云同步、分析或崩溃上报服务。
 
@@ -26,6 +26,8 @@
 ## English
 
 Ripple stores reminder preferences and drink entries locally using sandboxed macOS UserDefaults. Entries older than 90 days are pruned when the app loads or a new drink is recorded. There are no accounts, analytics, tracking, cloud synchronization, or remote crash reports.
+
+Weekday choices are stored locally. The app does not access calendars, employer attendance systems, or holiday services to determine reminder days.
 
 The animation uses one bean mascot with no gender or character selector. The obsolete `character` preference is ignored on load and omitted from subsequent saves; other settings and drink history are preserved.
 

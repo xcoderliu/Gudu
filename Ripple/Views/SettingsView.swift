@@ -40,6 +40,8 @@ struct SettingsView: View {
                         }
                     }
                     Divider().overlay(Palette.line)
+                    weekdayPicker
+                    Divider().overlay(Palette.line)
                     HStack(spacing: 24) {
                         timePicker("开始时间", minute: $model.settings.startMinute)
                         Image(systemName: "arrow.right").font(.system(size: 12)).foregroundStyle(Palette.secondary)
@@ -120,9 +122,51 @@ struct SettingsView: View {
     }
 
     private var timeDescription: String {
-        if model.settings.startMinute == model.settings.endMinute { return "开始和结束相同：全天提醒。" }
-        if model.settings.startMinute > model.settings.endMinute { return "提醒时段跨越午夜，其余时间保持安静。" }
+        if model.settings.startMinute == model.settings.endMinute { return "开始和结束相同：所选日期全天提醒。" }
+        if model.settings.startMinute > model.settings.endMinute { return "跨午夜按开始当天计算，持续到次日结束时间。" }
         return "只在这个时段提醒，其余时间保持安静。"
+    }
+
+    private var weekdayPicker: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 9) {
+                Text("每周提醒日").font(.system(size: 12, weight: .medium))
+                Spacer()
+                weekdayPreset("周一至周五", days: ReminderWeekday.workdays)
+                weekdayPreset("周末", days: ReminderWeekday.weekend)
+                weekdayPreset("每天", days: ReminderWeekday.everyDay)
+            }
+            HStack(spacing: 8) {
+                ForEach(ReminderWeekday.allCases) { day in
+                    let selected = model.settings.weekdays.contains(day)
+                    Button {
+                        var days = model.settings.weekdays
+                        if selected { days.remove(day) } else { days.insert(day) }
+                        model.settings.weekdays = days
+                    } label: {
+                        Text(AppModel.weekdayLabel(day)).font(.system(size: 11, weight: .medium))
+                            .frame(maxWidth: .infinity).frame(height: 35)
+                            .foregroundStyle(selected ? Palette.accent : Palette.secondary)
+                            .background(selected ? Palette.mint.opacity(0.35) : Palette.background,
+                                        in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Palette.accent.opacity(0.25) : .clear, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(AppModel.weekdayLabel(day))提醒")
+                    .accessibilityValue(selected ? "已选择" : "未选择")
+                    .accessibilityAddTraits(selected ? [.isSelected] : [])
+                }
+            }
+            Text(model.settings.weekdays.isEmpty ? "未选择日期，自动提醒暂停；仍可手动记录和预览。" : "仅在勾选的日期与下方时段自动提醒。")
+                .font(.system(size: 10)).foregroundStyle(model.settings.weekdays.isEmpty ? Color.orange : Palette.secondary)
+        }
+    }
+
+    private func weekdayPreset(_ title: String, days: Set<ReminderWeekday>) -> some View {
+        Button(title) { model.settings.weekdays = days }
+            .buttonStyle(.plain).font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.accent)
+            .padding(.horizontal, 9).padding(.vertical, 6)
+            .background(model.settings.weekdays == days ? Palette.mint.opacity(0.35) : Palette.background, in: Capsule())
     }
 
     private func timePicker(_ label: String, minute: Binding<Int>) -> some View {

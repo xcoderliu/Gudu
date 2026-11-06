@@ -34,6 +34,23 @@ struct AppModelSmokeTest {
         model.settings.requireDrinkVerification = false
         try expect(disabledVerification, "Disabling verification did not request camera cleanup")
 
+        model.settings.weekdays = []
+        try expect(model.nextReminder == nil && model.countdown == "未选提醒日", "Empty weekdays left an automatic reminder")
+        model.preview()
+        try expect(!model.isPresenting && model.entries.isEmpty, "Empty weekdays blocked a preview or recorded water")
+        model.recordDrink()
+        try expect(model.todayML == 250 && model.nextReminder == nil, "Manual recording changed the empty weekday plan")
+        model.undoLastDrink()
+
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date())!
+        let nextDay = ReminderWeekday(rawValue: calendar.component(.weekday, from: tomorrow))!
+        model.settings.weekdays = [nextDay]
+        try expect(model.nextReminder == calendar.startOfDay(for: tomorrow), "Weekday change did not immediately plan the next selected midnight")
+        let saved = try JSONDecoder().decode(ReminderSettings.self, from: defaults.data(forKey: "reminderSettings")!)
+        try expect(saved.weekdays == [nextDay], "Weekdays were not persisted")
+        model.settings.weekdays = ReminderWeekday.everyDay
+
         let before = model.nextReminder
         model.preview()
         try expect(model.nextReminder == before && model.entries.isEmpty && !model.isPresenting,
@@ -55,6 +72,6 @@ struct AppModelSmokeTest {
         try expect(remaining > 298 && remaining <= 301, "Snooze did not schedule five minutes")
         model.toggleEnabled()
         try expect(!model.settings.isEnabled && model.nextReminder == nil, "Pause left a pending reminder")
-        print("PASS: verification opt-out cleanup, preview, record/undo, real timer trigger, five-minute snooze, and pause")
+        print("PASS: weekday pause/persistence/reschedule, manual actions without selected dates, verification opt-out cleanup, preview, record/undo, real timer, snooze, and pause")
     }
 }
