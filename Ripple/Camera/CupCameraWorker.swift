@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import Foundation
+import CoreImage
 import QuartzCore
 import RippleCore
 import Vision
@@ -23,6 +24,8 @@ final class CupCameraWorker: NSObject, AVCaptureVideoDataOutputSampleBufferDeleg
     private var observers: [NSObjectProtocol] = [] // captureQueue only
     private let faceRequest = VNDetectFaceLandmarksRequest()
     private let vesselRequest = VNClassifyImageRequest()
+    private let cropContext = CIContext(options: [.cacheIntermediates: false])
+    private var mouthMemory = MouthPositionMemory()
     private var detector = DrinkGestureDetector() // visionQueue only
     private var lastAnalysis = -Double.infinity
     private var consecutiveErrors = 0
@@ -100,21 +103,26 @@ final class CupCameraWorker: NSObject, AVCaptureVideoDataOutputSampleBufferDeleg
             let handler = VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .up)
             try handler.perform([faceRequest])
             let faces = (faceRequest.results ?? []).filter { $0.confidence >= 0.5 }
-            var sample = DrinkGestureSample(faceCount: faces.count, faceConfidence: 0, vesselConfidence: 0)
-            if faces.count == 1, let face = faces.first {
-                sample.faceConfidence = Double(face.confidence)
-                let mouth = Self.mouthPosition(face)
-                let aspect = CGFloat(CVPixelBufferGetWidth(pixels)) / CGFloat(CVPixelBufferGetHeight(pixels))
-                // Only classify immediately around/below the mouth. A mug on a
-                // desk elsewhere in the frame must not satisfy the reminder.
-                if let region = MouthRegion.boundingBox(mouth: mouth, faceWidth: face.boundingBox.width, imageAspectRatio: aspect) {
-                    vesselRequest.regionOfInterest = region
-                    try handler.perform([vesselRequest])
-                    sample.vesselConfidence = Double((vesselRequest.results ?? [])
-                        .filter { DrinkingVesselLabels.accepts($0.identifier) }
-                        .map(\.confidence).max() ?? 0)
-                }
+            let aspect = CGFloat(CVPixelBufferGetWidth(pixels)) / CGFloat(CVPixelBufferGetHeight(pixels))
+            var confidence = 0.0
+            // Always inspect the remembered location, even with zero detected
+            // faces. The cup covering the face is exactly the expected input.
+            if let anchor = mouthMemory.anchor,
+               let region = MouthRegion.boundingBox(mouth: anchor.mouth, faceWidth: anchor.faceWidth, imageAspectRatio: aspect) {
+                confidence = try vesselConfidence(in: pixels, region: region)
             }
+            // While a cup is present, freeze the mouth position. Otherwise a
+            // partial face or guessed lip landmarks could move it onto the cup.
+            if confidence < 0.22, faces.count == 1, let face = faces.first,
+               let mouth = Self.visibleMouthPosition(face),
+               mouthMemory.remember(face: face.boundingBox, mouth: mouth),
+               let anchor = mouthMemory.anchor,
+               let region = MouthRegion.boundingBox(mouth: anchor.mouth, faceWidth: anchor.faceWidth, imageAspectRatio: aspect) {
+                confidence = try vesselConfidence(in: pixels, region: region)
+            }
+            let sample = DrinkGestureSample(faceCount: faces.count,
+                                             hasRememberedMouth: mouthMemory.anchor != nil,
+                                             vesselConfidence: confidence)
             consecutiveErrors = 0
             let progress = detector.consume(sample, at: time)
             if isActive { onEvent(.frame(progress)) }
@@ -124,14 +132,27 @@ final class CupCameraWorker: NSObject, AVCaptureVideoDataOutputSampleBufferDeleg
         }
     }
 
-    private static func mouthPosition(_ face: VNFaceObservation) -> CGPoint {
+    private func vesselConfidence(in pixels: CVPixelBuffer, region: CGRect) throws -> Double {
+        let image = CIImage(cvPixelBuffer: pixels)
+        let rectangle = CGRect(x: region.minX * image.extent.width, y: region.minY * image.extent.height,
+                               width: region.width * image.extent.width, height: region.height * image.extent.height)
+            .integral.intersection(image.extent)
+        guard let crop = cropContext.createCGImage(image, from: rectangle) else { return 0 }
+        // Materialize each crop, so the classifier sees only this patch of pixels
+        // rather than depending on a request's interpretation of regionOfInterest.
+        try VNImageRequestHandler(cgImage: crop, orientation: .up).perform([vesselRequest])
+        return Double((vesselRequest.results ?? []).filter { DrinkingVesselLabels.accepts($0.identifier) }
+            .map(\.confidence).max() ?? 0)
+    }
+
+    private static func visibleMouthPosition(_ face: VNFaceObservation) -> CGPoint? {
         let box = face.boundingBox
-        if let lips = face.landmarks?.outerLips, lips.pointCount > 0 {
+        let hasEye = (face.landmarks?.leftEye?.pointCount ?? 0) >= 2 || (face.landmarks?.rightEye?.pointCount ?? 0) >= 2
+        if hasEye, let lips = face.landmarks?.outerLips, lips.pointCount >= 4 {
             let sum = lips.normalizedPoints.reduce(CGPoint.zero) { CGPoint(x: $0.x + $1.x, y: $0.y + $1.y) }
             return CGPoint(x: box.minX + sum.x / CGFloat(lips.pointCount) * box.width,
                            y: box.minY + sum.y / CGFloat(lips.pointCount) * box.height)
         }
-        // Cups often occlude lip landmarks; the detected face still anchors ROI.
-        return CGPoint(x: box.midX, y: box.minY + box.height * 0.3)
+        return nil
     }
 }

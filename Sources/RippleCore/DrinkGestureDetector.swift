@@ -2,13 +2,12 @@ import Foundation
 
 public struct DrinkGestureSample: Sendable {
     public var faceCount: Int
-    public var faceConfidence: Double
-    /// The vessel classifier runs only in a tightly cropped mouth region.
+    public var hasRememberedMouth: Bool
     public var vesselConfidence: Double
 
-    public init(faceCount: Int = 1, faceConfidence: Double = 1, vesselConfidence: Double) {
+    public init(faceCount: Int = 1, hasRememberedMouth: Bool = false, vesselConfidence: Double) {
         self.faceCount = faceCount
-        self.faceConfidence = faceConfidence
+        self.hasRememberedMouth = hasRememberedMouth
         self.vesselConfidence = vesselConfidence
     }
 }
@@ -28,13 +27,13 @@ public struct DrinkVerificationProgress: Sendable, Equatable {
     }
 }
 
-/// A conservative gesture heuristic, not proof that liquid was swallowed.
-/// A vessel must stay in the mouth region for about a second; no lowering step.
+/// Locate the mouth once, then accumulate cup evidence at that remembered place.
+/// Losing face detection or temporarily missing a cup pauses progress, never
+/// reverses it. A new camera session explicitly starts a new detector.
 public struct DrinkGestureDetector: Sendable {
     public private(set) var progress = DrinkVerificationProgress(stage: .findingFace)
     private var lastTime: TimeInterval?
-    private var lastFaceTime: TimeInterval?
-    private var lastVesselTime: TimeInterval?
+    private var hasMouthLocation = false
     private var holding = 0.0
 
     public init() {}
@@ -44,32 +43,23 @@ public struct DrinkGestureDetector: Sendable {
         guard !progress.isVerified, time.isFinite, time >= 0 else { return progress }
         if let lastTime, time <= lastTime { return progress }
         let gap = lastTime.map { time - $0 } ?? 0
-        if gap > 0.75 { resetGesture() }
         let delta = gap > 0.75 ? 0 : min(gap, 0.25)
         lastTime = time
+        hasMouthLocation = hasMouthLocation || sample.hasRememberedMouth
 
-        guard sample.faceCount == 1, sample.faceConfidence.isFinite, sample.faceConfidence >= 0.5 else {
-            if sample.faceCount > 1 || time - (lastFaceTime ?? -.infinity) > 0.5 { resetGesture() }
+        guard hasMouthLocation else {
             return set(sample.faceCount > 1 ? .multiplePeople : .findingFace)
         }
-        lastFaceTime = time
-        guard sample.vesselConfidence.isFinite && sample.vesselConfidence >= 0.22 else {
-            if time - (lastVesselTime ?? -.infinity) > 0.25 { holding = 0 }
+        guard sample.vesselConfidence.isFinite, sample.vesselConfidence >= 0.22 else {
             return set(.bringCup)
         }
-        lastVesselTime = time
         holding += delta
-        if holding >= 0.8 { return set(.verified, fraction: 1) }
-        return set(.holding, fraction: holding / 0.8)
+        if holding >= 0.8 { return set(.verified) }
+        return set(.holding)
     }
 
-    private mutating func resetGesture() {
-        holding = 0
-        lastFaceTime = nil; lastVesselTime = nil
-    }
-
-    private mutating func set(_ stage: DrinkVerificationStage, fraction: Double = 0) -> DrinkVerificationProgress {
-        progress = DrinkVerificationProgress(stage: stage, fraction: fraction)
+    private mutating func set(_ stage: DrinkVerificationStage) -> DrinkVerificationProgress {
+        progress = DrinkVerificationProgress(stage: stage, fraction: stage == .verified ? 1 : holding / 0.8)
         return progress
     }
 }

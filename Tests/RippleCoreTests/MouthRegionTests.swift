@@ -35,4 +35,57 @@ final class MouthRegionTests: XCTestCase {
         XCTAssertNil(MouthRegion.boundingBox(mouth: CGPoint(x: CGFloat.nan, y: 0.5), faceWidth: 0.2, imageAspectRatio: 1.5))
         XCTAssertNil(MouthRegion.boundingBox(mouth: CGPoint(x: 0.5, y: 0.5), faceWidth: 0.2, imageAspectRatio: 0))
     }
+
+}
+
+final class MouthPositionMemoryTests: XCTestCase {
+    private let face = CGRect(x: 0.35, y: 0.3, width: 0.3, height: 0.5)
+    private let mouth = CGPoint(x: 0.5, y: 0.45)
+
+    func testRemembersVisibleMouth() {
+        var memory = MouthPositionMemory()
+        XCTAssertTrue(memory.remember(face: face, mouth: mouth))
+        XCTAssertEqual(memory.anchor?.mouth, mouth)
+    }
+
+    func testInvalidFaceDoesNotEraseLastMouth() {
+        var memory = MouthPositionMemory()
+        memory.remember(face: face, mouth: mouth)
+        XCTAssertFalse(memory.remember(face: .null, mouth: CGPoint(x: CGFloat.nan, y: 0)))
+        XCTAssertEqual(memory.anchor?.mouth, mouth)
+    }
+
+    func testUpdatesWhenAnUncoveredFaceMoves() {
+        var memory = MouthPositionMemory()
+        memory.remember(face: face, mouth: mouth)
+        let moved = CGPoint(x: mouth.x + 0.1, y: mouth.y + 0.05)
+        XCTAssertTrue(memory.remember(face: face.offsetBy(dx: 0.1, dy: 0.05), mouth: moved))
+        XCTAssertEqual(memory.anchor?.mouth, moved)
+    }
+
+    func testSmallerWholeFaceCanUpdatePosition() {
+        var memory = MouthPositionMemory()
+        memory.remember(face: face, mouth: mouth)
+        let smaller = CGRect(x: 0.4, y: 0.4, width: 0.15, height: 0.25)
+        let updated = CGPoint(x: smaller.midX, y: smaller.minY + smaller.height * 0.3)
+        XCTAssertTrue(memory.remember(face: smaller, mouth: updated))
+        XCTAssertEqual(memory.anchor?.mouth, updated)
+    }
+
+    func testCupOcclusionDoesNotMoveMouthIntoUpperFace() {
+        var memory = MouthPositionMemory()
+        memory.remember(face: face, mouth: mouth)
+        let partial = CGRect(x: face.minX, y: face.minY + face.height * 0.5,
+                             width: face.width, height: face.height * 0.5)
+        let wrong = CGPoint(x: partial.midX, y: partial.minY + partial.height * 0.3)
+        XCTAssertFalse(memory.remember(face: partial, mouth: wrong))
+        XCTAssertEqual(memory.anchor?.mouth, mouth)
+    }
+
+    func testExplicitResetClearsPositionForANewSession() {
+        var memory = MouthPositionMemory()
+        memory.remember(face: face, mouth: mouth)
+        memory.reset()
+        XCTAssertNil(memory.anchor)
+    }
 }

@@ -56,8 +56,8 @@ struct CameraVerificationPanel: View {
             switch progress.stage {
             case .findingFace: "请面向摄像头"
             case .multiplePeople: "画面中请保持一人"
-            case .bringCup: "把杯子靠近嘴边"
-            case .holding: "看到杯子了，保持一下…"
+            case .bringCup: "嘴部位置已记住"
+            case .holding: "正在识别喝水…"
             case .verified: "识别完成"
             }
         }
@@ -68,7 +68,15 @@ struct CameraVerificationPanel: View {
         case .unavailable(let message): message
         case .authorizing: "请在 macOS 的授权弹窗中选择允许。"
         case .verified: "即将完成本次提醒。"
-        default: "让杯子或水瓶出现在嘴边，保持约 1 秒，即可自动完成。"
+        case .tracking(let progress):
+            switch progress.stage {
+            case .findingFace: "先露出面部定位一次，再正常喝水。"
+            case .multiplePeople: "请让画面中只保留一人，再尝试识别。"
+            case .bringCup: "正常举杯即可，遮住面部也会保留位置与进度。"
+            case .holding: "正在确认记住位置附近的杯子，无需露出嘴巴。"
+            case .verified: "即将完成本次提醒。"
+            }
+        default: "先定位嘴部，再正常喝水，累计识别约 1 秒即可完成。"
         }
     }
 }
