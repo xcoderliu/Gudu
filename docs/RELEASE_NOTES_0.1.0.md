@@ -23,7 +23,7 @@
 | `Gudu-0.1.0-macos-arm64-unsigned.zip` | 完全未签名、未公证；Apple Silicon 运行前需自行添加本地 ad-hoc 签名 |
 | `Gudu-0.1.0-macos-arm64-unsigned.zip.sha256` | 上述压缩包的 SHA-256 |
 
-没有使用公司的账号或开发者证书。安装与首次打开步骤见 [安装指南](https://github.com/xcoderliu/Gudu/blob/main/docs/INSTALL.md)。Gatekeeper 可能拦截未公证应用；只有核对来源和校验和后才允许打开。
+安装与首次打开步骤见 [安装指南](https://github.com/xcoderliu/Gudu/blob/main/docs/INSTALL.md)。Gatekeeper 可能拦截未公证应用；只有核对来源和校验和后才允许打开。
 
 摄像头功能识别嘴边杯具，不能确认实际吞咽或饮水量；水量按预设的一杯记录。画面不保存、不上传。先用「测试摄像头识别」验证自己的杯子、握法与光线。
 
@@ -31,4 +31,4 @@
 
 122 项核心测试通过；恢复流程的 20 项 AppModel 断言、真实一分钟 Timer 与隐藏窗口完成 / 撒花检查通过。Debug 和 Release 构建通过。安装包另行解压验证签名状态、架构、版本及校验和。本地验证不等于远端 CI 或新机器首次安装验证。
 
-代码采用 MIT License。封面与主界面来自隔离示例数据和矢量场景；摄像头展示图由维护者提供并同意使用，仅更新左上品牌区，真人与识别区域保持原截图。
+代码采用 MIT License。

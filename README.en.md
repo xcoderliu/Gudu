@@ -77,8 +77,6 @@ This detects a vessel in the mouth region, not swallowing or actual intake volum
 
 ![Camera verification in actual use](docs/images/camera-real-use.webp)
 
-Maintainer-provided screenshot shared with permission. Only the top-left branding was updated using a supplied native screenshot crop; the person, cup, and detection progress remain unchanged.
-
 ## Source layout
 
 `Gudu/` contains the SwiftUI/AppKit application. `Sources/GuduCore/` contains the local Swift package for schedules, display routing, and models. `Tests/GuduCoreTests/` covers schedule boundaries, daylight saving, snoozing, and multi-display geometry. `scripts/` contains reproducible development helpers, and `docs/` explains the architecture, privacy, validation, and release process.
