@@ -19,14 +19,18 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
+      - name: Repository file checks
+        run: python3 scripts/check_repository_files.py
       - name: Core tests
         run: swift test
+      - name: Reminder recovery integration
+        run: ./scripts/check_recovery.sh
       - name: Build macOS app
         run: >-
-          xcodebuild -project Ripple.xcodeproj -scheme Ripple
+          xcodebuild -project Gudu.xcodeproj -scheme Gudu
           -configuration Release -derivedDataPath build
-          CODE_SIGNING_ALLOWED=NO build
+          ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
       - name: Verify reproducible project
         run: |
           python3 scripts/generate_project.py
-          git diff --exit-code -- Ripple.xcodeproj
+          git diff --exit-code -- Gudu.xcodeproj

@@ -8,4 +8,28 @@ xcuserdata/
 *.xcresult
 *.dSYM/
 .local/
-!Ripple.xcodeproj/xcshareddata/xcschemes/Ripple.xcscheme
+!Gudu.xcodeproj/xcshareddata/xcschemes/Gudu.xcscheme
+dist/
+
+# Release archives, local logs and credentials
+*.zip
+*.dmg
+*.pkg
+*.ipa
+*.xcarchive/
+*.log
+*.p12
+*.pfx
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+.env
+.env.*
+!.env.example
+
+# Python helper caches and macOS resource sidecars
+__pycache__/
+*.py[cod]
+.venv/
+._*

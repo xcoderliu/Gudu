@@ -2,11 +2,12 @@
 
 - This is a native macOS SwiftUI + AppKit application. Keep runtime dependencies local and offline.
 - Use vector paths for reminder animation and respect Reduce Motion.
-- Place deterministic schedule/display logic in `Sources/RippleCore`; verify relevant boundaries with `swift test`.
-- Build with `xcodebuild -project Ripple.xcodeproj -scheme Ripple -configuration Debug -derivedDataPath build build`.
+- Place deterministic schedule/display logic in `Sources/GuduCore`; verify relevant boundaries with `swift test`.
+- Build with `xcodebuild -project Gudu.xcodeproj -scheme Gudu -configuration Debug -derivedDataPath build build`.
 - New app source files must be included in the checked-in Xcode project. If regenerating, preserve build changes in `scripts/generate_project.py` first.
 - Preserve app sandboxing. Never add private APIs, global input monitoring, tracking, or network access without an explicit product requirement.
 - Keep screenshots limited to app content; never commit real user data, credentials, Derived Data, or personal IDE state.
+- The maintainer explicitly authorized `docs/images/camera-real-use.webp` for public project documentation. This one supplied screenshot is an exception to the real-user-image rule; keep its source caption explaining that only the branding was updated from a supplied native screenshot and do not capture or add other real camera images.
 - Update user-facing docs when behavior changes. State clearly which OS/hardware configurations have actually been verified.
 
 ## 沟通

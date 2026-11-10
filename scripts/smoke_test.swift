@@ -1,13 +1,13 @@
 import AppKit
 import Foundation
-import RippleCore
+import GuduCore
 
 /// Real timer integration check with isolated preferences and no reminder windows.
 @main
 struct AppModelSmokeTest {
     @MainActor static func main() throws {
         _ = NSApplication.shared
-        let suite = "local.ripple.smoke.\(UUID().uuidString)"
+        let suite = "local.gudu.smoke.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = ReminderSettings(intervalMinutes: 1, startMinute: 0, endMinute: 0)
@@ -26,7 +26,7 @@ struct AppModelSmokeTest {
 
         func expect(_ value: Bool, _ message: String) throws {
             guard value else {
-                throw NSError(domain: "RippleSmoke", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+                throw NSError(domain: "GuduSmoke", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
             }
         }
 

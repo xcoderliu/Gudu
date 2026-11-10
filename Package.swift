@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "RippleCore",
+    name: "GuduCore",
     platforms: [.macOS(.v14)],
-    products: [.library(name: "RippleCore", targets: ["RippleCore"])],
+    products: [.library(name: "GuduCore", targets: ["GuduCore"])],
     targets: [
-        .target(name: "RippleCore"),
-        .testTarget(name: "RippleCoreTests", dependencies: ["RippleCore"])
+        .target(name: "GuduCore"),
+        .testTarget(name: "GuduCoreTests", dependencies: ["GuduCore"])
     ]
 )

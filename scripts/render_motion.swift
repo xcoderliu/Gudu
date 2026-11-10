@@ -1,6 +1,6 @@
 import AppKit
 import ImageIO
-import RippleCore
+import GuduCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -23,7 +23,7 @@ struct MotionRenderer {
 
         func render<Content: View>(_ content: Content, size: NSSize) throws -> NSBitmapImageRep {
             window.setContentSize(size)
-            hosting.rootView = AnyView(content.environment(\.rippleStaticAnimation, true))
+            hosting.rootView = AnyView(content.environment(\.guduStaticAnimation, true))
             hosting.setFrameSize(size)
             hosting.layoutSubtreeIfNeeded()
             RunLoop.main.run(until: Date().addingTimeInterval(0.025))
@@ -31,7 +31,7 @@ struct MotionRenderer {
                 pixelsWide: Int(size.width), pixelsHigh: Int(size.height), bitsPerSample: 8,
                 samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                 colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else {
-                throw NSError(domain: "RippleMotion", code: 1)
+                throw NSError(domain: "GuduMotion", code: 1)
             }
             bitmap.size = size
             hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
@@ -41,7 +41,7 @@ struct MotionRenderer {
         let frameCount = 108
         let gifURL = output.appendingPathComponent("pickup-motion.gif")
         guard let gif = CGImageDestinationCreateWithURL(gifURL as CFURL, UTType.gif.identifier as CFString, frameCount, nil) else {
-            throw NSError(domain: "RippleMotion", code: 2)
+            throw NSError(domain: "GuduMotion", code: 2)
         }
         CGImageDestinationSetProperties(gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
         for frame in 0..<frameCount {
@@ -52,13 +52,13 @@ struct MotionRenderer {
                 .frame(width: size.width, height: size.height).opacity(opacity)
                 .background(Palette.ocean).id(frame)
             let bitmap = try render(scene, size: size)
-            guard let image = bitmap.cgImage else { throw NSError(domain: "RippleMotion", code: 3) }
+            guard let image = bitmap.cgImage else { throw NSError(domain: "GuduMotion", code: 3) }
             CGImageDestinationAddImage(gif, image, [kCGImagePropertyGIFDictionary: [
                 kCGImagePropertyGIFDelayTime: 1.0 / 24,
                 kCGImagePropertyGIFUnclampedDelayTime: 1.0 / 24
             ]] as CFDictionary)
         }
-        guard CGImageDestinationFinalize(gif) else { throw NSError(domain: "RippleMotion", code: 4) }
+        guard CGImageDestinationFinalize(gif) else { throw NSError(domain: "GuduMotion", code: 4) }
 
         let times = [3.8, 4.2, 4.6, 4.9, 5.7, 6.7]
         let contact = VStack(spacing: 16) {
@@ -80,26 +80,26 @@ struct MotionRenderer {
 
         let beanURL = output.appendingPathComponent("bean-ritual.gif")
         guard let bean = CGImageDestinationCreateWithURL(beanURL as CFURL, UTType.gif.identifier as CFString, 180, nil) else {
-            throw NSError(domain: "RippleMotion", code: 8)
+            throw NSError(domain: "GuduMotion", code: 8)
         }
         CGImageDestinationSetProperties(bean, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
         for frame in 0..<180 {
             let scene = DrinkingRitualScene(startedAt: .now, snapshotTime: Double(frame) / 12)
                 .frame(width: size.width, height: size.height).background(Palette.ocean).id(frame)
             let bitmap = try render(scene, size: size)
-            guard let image = bitmap.cgImage else { throw NSError(domain: "RippleMotion", code: 9) }
+            guard let image = bitmap.cgImage else { throw NSError(domain: "GuduMotion", code: 9) }
             CGImageDestinationAddImage(bean, image, [kCGImagePropertyGIFDictionary: [
                 kCGImagePropertyGIFDelayTime: 1.0 / 12,
                 kCGImagePropertyGIFUnclampedDelayTime: 1.0 / 12
             ]] as CFDictionary)
         }
-        guard CGImageDestinationFinalize(bean) else { throw NSError(domain: "RippleMotion", code: 10) }
+        guard CGImageDestinationFinalize(bean) else { throw NSError(domain: "GuduMotion", code: 10) }
         print("Rendered bean-ritual.gif")
 
         let confettiSize = NSSize(width: 960, height: 600)
         let confettiURL = output.appendingPathComponent("confetti-motion.gif")
         guard let confetti = CGImageDestinationCreateWithURL(confettiURL as CFURL, UTType.gif.identifier as CFString, 72, nil) else {
-            throw NSError(domain: "RippleMotion", code: 5)
+            throw NSError(domain: "GuduMotion", code: 5)
         }
         CGImageDestinationSetProperties(confetti, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
         for frame in 0..<72 {
@@ -109,13 +109,13 @@ struct MotionRenderer {
                                            startPoint: .topLeading, endPoint: .bottomTrailing))
                 .id(frame)
             let bitmap = try render(scene, size: confettiSize)
-            guard let image = bitmap.cgImage else { throw NSError(domain: "RippleMotion", code: 6) }
+            guard let image = bitmap.cgImage else { throw NSError(domain: "GuduMotion", code: 6) }
             CGImageDestinationAddImage(confetti, image, [kCGImagePropertyGIFDictionary: [
                 kCGImagePropertyGIFDelayTime: 1.0 / 24,
                 kCGImagePropertyGIFUnclampedDelayTime: 1.0 / 24
             ]] as CFDictionary)
         }
-        guard CGImageDestinationFinalize(confetti) else { throw NSError(domain: "RippleMotion", code: 7) }
+        guard CGImageDestinationFinalize(confetti) else { throw NSError(domain: "GuduMotion", code: 7) }
         for still in [false, true] {
             let scene = ConfettiCelebrationView(startedAt: .now, snapshotTime: 1, snapshotReduceMotion: still)
                 .frame(width: 1440, height: 900)

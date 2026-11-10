@@ -12,7 +12,7 @@ from pathlib import Path
 
 RATE = 22050
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "Ripple" / "Resources"
+OUTPUT = ROOT / "Gudu" / "Resources"
 
 
 def envelope(time, duration, attack=0.08, release=0.2):
@@ -27,9 +27,9 @@ def add_noise(buffer, start, duration, amplitude, seed, breath=False):
         noise = rng.uniform(-1, 1)
         low += (0.14 if breath else 0.31) * (noise - low)
         base += (0.018 if breath else 0.045) * (noise - base)
-        ripple = 0.76 + 0.24 * math.sin(time * 2 * math.pi * (3 if breath else 23)) ** 2
+        gudu = 0.76 + 0.24 * math.sin(time * 2 * math.pi * (3 if breath else 23)) ** 2
         shape = math.sin(math.pi * time / duration) ** (0.8 if breath else 0.35)
-        value = (low - base) * amplitude * shape * ripple
+        value = (low - base) * amplitude * shape * gudu
         if breath:
             # A very quiet warm resonance supports the breath without words.
             value += math.sin(2 * math.pi * (145 * time - 13 * time * time)) * 0.009 * shape

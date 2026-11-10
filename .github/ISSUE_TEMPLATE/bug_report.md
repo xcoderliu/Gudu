@@ -1,6 +1,6 @@
 ---
 name: Bug report / 问题反馈
-about: Report unexpected behavior in Ripple
+about: Report unexpected behavior in Gudu
 title: ""
 labels: bug
 assignees: ""
@@ -20,7 +20,7 @@ assignees: ""
 
 - macOS:
 - Xcode（源码构建时 / if building from source）:
-- Ripple version:
+- Gudu version:
 - Apple Silicon / Intel:
 - 显示器数量和排列 / Display count and arrangement:
 - 桌面 / 全屏 / Spaces / Stage Manager:

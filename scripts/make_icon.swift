@@ -4,7 +4,7 @@ import AppKit
 import Foundation
 
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-let output = root.appendingPathComponent("Ripple/Resources/Assets.xcassets/AppIcon.appiconset")
+let output = root.appendingPathComponent("Gudu/Resources/Assets.xcassets/AppIcon.appiconset")
 try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
 func color(_ hex: UInt32) -> NSColor {
