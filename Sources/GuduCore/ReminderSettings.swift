@@ -19,6 +19,8 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
     public var dailyGoalML: Int
     public var requireDrinkVerification: Bool
     public var weekdays: Set<ReminderWeekday>
+    /// Zero disables the quiet refill bubble.
+    public var preparationLeadMinutes: Int
 
     public init(
         intervalMinutes: Int = 45,
@@ -31,7 +33,8 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         servingML: Int = 250,
         dailyGoalML: Int = 2000,
         requireDrinkVerification: Bool = true,
-        weekdays: Set<ReminderWeekday> = ReminderWeekday.workdays
+        weekdays: Set<ReminderWeekday> = ReminderWeekday.workdays,
+        preparationLeadMinutes: Int = 5
     ) {
         self.intervalMinutes = intervalMinutes
         self.startMinute = startMinute
@@ -44,12 +47,14 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         self.dailyGoalML = dailyGoalML
         self.requireDrinkVerification = requireDrinkVerification
         self.weekdays = weekdays
+        self.preparationLeadMinutes = preparationLeadMinutes
         normalize()
     }
 
     private enum CodingKeys: String, CodingKey {
         case intervalMinutes, startMinute, endMinute, isEnabled, displayMode
         case soundEnabled, autoDismissSeconds, servingML, dailyGoalML, requireDrinkVerification, weekdays
+        case preparationLeadMinutes
     }
 
     public init(from decoder: Decoder) throws {
@@ -68,7 +73,8 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
             dailyGoalML: try values.decodeIfPresent(Int.self, forKey: .dailyGoalML) ?? 2000,
             requireDrinkVerification: try values.decodeIfPresent(Bool.self, forKey: .requireDrinkVerification) ?? false,
             weekdays: try values.decodeIfPresent([Int].self, forKey: .weekdays)
-                .map { Set($0.compactMap(ReminderWeekday.init(rawValue:))) } ?? ReminderWeekday.everyDay
+                .map { Set($0.compactMap(ReminderWeekday.init(rawValue:))) } ?? ReminderWeekday.everyDay,
+            preparationLeadMinutes: try values.decodeIfPresent(Int.self, forKey: .preparationLeadMinutes) ?? 5
         )
     }
 
@@ -77,6 +83,7 @@ public struct ReminderSettings: Codable, Equatable, Sendable {
         startMinute = min(max(startMinute, 0), 1439)
         endMinute = min(max(endMinute, 0), 1439)
         autoDismissSeconds = [0, 15, 30, 60].contains(autoDismissSeconds) ? autoDismissSeconds : 0
+        preparationLeadMinutes = [0, 3, 5, 10].contains(preparationLeadMinutes) ? preparationLeadMinutes : 5
         servingML = min(max(servingML, 50), 1000)
         dailyGoalML = min(max(dailyGoalML, 500), 5000)
     }

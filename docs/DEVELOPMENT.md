@@ -133,3 +133,11 @@ python3 scripts/make_sounds.py
 ## 提交文件检查
 
 执行 `python3 scripts/check_repository_files.py`，检查公开源码树中是否有超过 5 MiB 的文件、构建产物、安装包、日志或凭据。构建目录与 Release 附件由 `.gitignore` 排除；安装包只上传 GitHub Release。文档实拍使用逐像素验证的无损 WebP，应用图标与必要音频保留在源码中。
+
+## 提前接水集成检查
+
+```bash
+./scripts/check_preparation.sh
+```
+
+检查使用独立偏好、注入时钟和隐藏窗口，不触发真实摄像头；包含约 15 秒的自动收起验证。传入 PNG 输出路径可导出实际气泡视图，如 `./scripts/check_preparation.sh /tmp/gudu-preparation.png`。日常查看气泡可在应用设置中点击「预览气泡」。

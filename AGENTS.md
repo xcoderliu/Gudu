@@ -8,6 +8,7 @@
 - Preserve app sandboxing. Never add private APIs, global input monitoring, tracking, or network access without an explicit product requirement.
 - Keep screenshots limited to app content; never commit real user data, credentials, Derived Data, or personal IDE state.
 - The maintainer explicitly authorized `docs/images/camera-real-use.webp` for public project documentation. This one supplied screenshot is an exception to the real-user-image rule; do not capture or add other real camera images. Do not add production-process or authorization captions under product images.
+- Creating or publishing a GitHub Release requires the maintainer's explicit confirmation for that release. Authorization to commit or push code does not authorize a Release.
 - Update user-facing docs when behavior changes. State clearly which OS/hardware configurations have actually been verified.
 
 ## 沟通

@@ -50,13 +50,15 @@ struct PreviewRenderer {
 
         try export(DashboardView(model: model).frame(width: 1060, height: 820),
                    size: NSSize(width: 1060, height: 820), name: "dashboard.png")
+        try export(PreparationBubbleView(minutes: 5, onDismiss: {}).frame(width: 340, height: 100),
+                   size: NSSize(width: 340, height: 100), name: "preparation.png")
         let session = ReminderSession(preview: false, servingML: 250, seconds: 0)
         try export(ReminderView(session: session, onAction: { _ in }).frame(width: 1440, height: 900),
                    size: NSSize(width: 1440, height: 900), name: "reminder.png")
         model.settings.weekdays = ReminderWeekday.workdays
-        try export(SettingsView(model: model).padding(30).frame(width: 800, height: 1740, alignment: .top)
+        try export(SettingsView(model: model).padding(30).frame(width: 800, height: 1900, alignment: .top)
             .background(Palette.background).preferredColorScheme(.light),
-                   size: NSSize(width: 800, height: 1740), name: "settings.png")
+                   size: NSSize(width: 800, height: 1900), name: "settings.png")
         let verification = ReminderSession(preview: true, servingML: 250, seconds: 30, requiresVerification: true)
         try export(ReminderView(session: verification, onAction: { _ in }).frame(width: 1440, height: 900),
                    size: NSSize(width: 1440, height: 900), name: "camera-verification.png")

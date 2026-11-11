@@ -9,6 +9,9 @@ final class AppModel: ObservableObject {
         didSet {
             saveSettings()
             if !settings.hasSameSchedule(as: oldValue) { reschedule() }
+            else if settings.preparationLeadMinutes != oldValue.preparationLeadMinutes || settings.displayMode != oldValue.displayMode {
+                refreshPreparation()
+            }
             if oldValue.requireDrinkVerification && !settings.requireDrinkVerification { onVerificationDisabled?() }
         }
     }
@@ -25,6 +28,8 @@ final class AppModel: ObservableObject {
     var onDismissReminder: (() -> Void)?
     var onTestVerification: (() -> Void)?
     var onVerificationDisabled: (() -> Void)?
+    var onPresentPreparation: ((_ minutes: Int) -> Void)?
+    var onDismissPreparation: (() -> Void)?
 
     private let defaults: UserDefaults
     private let clock: () -> Date
@@ -41,6 +46,9 @@ final class AppModel: ObservableObject {
     private var interruptedReminder = false
     private var interruptionDismissal = false
     private var presentingPreview = false
+    private var preparationPlan: PreparationReminderPlan?
+    private var lastPreparedReminder: Date?
+    private var allowsPreparation = true
 
     init(defaults: UserDefaults = .standard, clock: @escaping () -> Date = Date.init, startsTimer: Bool = true) {
         self.defaults = defaults
@@ -113,6 +121,24 @@ final class AppModel: ObservableObject {
         regularReminder = settings.isEnabled
             ? settings.schedule.nextReminder(after: now, delay: delay) : nil
         updateNextReminder()
+        allowsPreparation = delay == nil
+        refreshPreparation()
+    }
+
+    private func clearPreparation() {
+        preparationPlan = nil
+        onDismissPreparation?()
+    }
+
+    private func refreshPreparation() {
+        clearPreparation()
+        guard allowsPreparation, !isScreenUnavailable, !isPresenting, catchUpReminder == nil else { return }
+        preparationPlan = PreparationReminderPlan(drinkDate: regularReminder, settings: settings, plannedAt: clock())
+    }
+
+    func previewPreparation() {
+        guard !isScreenUnavailable, !isPresenting, settings.preparationLeadMinutes > 0 else { return }
+        onPresentPreparation?(settings.preparationLeadMinutes)
     }
 
     private func updateNextReminder() {
@@ -128,6 +154,7 @@ final class AppModel: ObservableObject {
         catchUpReminder = plan.catchUpReminder
         interruptedReminder = false
         updateNextReminder()
+        refreshPreparation()
     }
 
     func toggleEnabled() {
@@ -156,6 +183,7 @@ final class AppModel: ObservableObject {
 
     func testDrinkVerification() {
         guard !isPresenting, !isScreenUnavailable, let onTestVerification else { return }
+        clearPreparation()
         isPresenting = true
         presentingPreview = true
         onTestVerification()
@@ -169,7 +197,7 @@ final class AppModel: ObservableObject {
             // dismissal must not erase the preserved recovery plan.
             if action != .drank { return }
         }
-        guard !preview else { return }
+        guard !preview else { refreshPreparation(); return }
         switch action {
         case .drank: recordDrink()
         case .snooze: reschedule(delay: 5 * 60)
@@ -197,6 +225,7 @@ final class AppModel: ObservableObject {
 
     private func present(preview: Bool) {
         guard !isPresenting, !isScreenUnavailable else { return }
+        clearPreparation()
         isPresenting = true
         presentingPreview = preview
         if !preview { catchUpReminder = nil; updateNextReminder() }
@@ -205,13 +234,20 @@ final class AppModel: ObservableObject {
 
     func tick() {
         let instant = clock()
-        let gap = instant.timeIntervalSince(lastTick)
+        let previousTick = lastTick
+        let gap = instant.timeIntervalSince(previousTick)
         lastTick = instant
         now = instant
         if gap < -5 { reschedule(); return }
         if gap > 90, !isScreenUnavailable, !isPresenting { recover(at: instant); return }
         guard settings.isEnabled, !isScreenUnavailable, !isPresenting,
-              let due = nextReminder, due <= instant else { return }
+              let due = nextReminder else { return }
+        if let plan = preparationPlan, lastPreparedReminder != plan.drinkDate,
+           plan.shouldPresent(after: previousTick, at: instant) {
+            lastPreparedReminder = plan.drinkDate
+            onPresentPreparation?(Int(ceil(plan.drinkDate.timeIntervalSince(instant) / 60)))
+        }
+        guard due <= instant else { return }
         guard settings.schedule.isActive(at: instant) else {
             reschedule()
             return
@@ -228,6 +264,7 @@ final class AppModel: ObservableObject {
         now = clock()
         lastTick = now
         if unavailable {
+            clearPreparation()
             interruptedReminder = interruptedReminder || catchUpReminder != nil || (isPresenting && !presentingPreview)
             catchUpReminder = nil
             interruptionDismissal = isPresenting
@@ -240,7 +277,10 @@ final class AppModel: ObservableObject {
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                              object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.displayCount = NSScreen.screens.count }
+            MainActor.assumeIsolated {
+                self?.displayCount = NSScreen.screens.count
+                self?.refreshPreparation()
+            }
         })
         for name in [NSApplication.didBecomeActiveNotification, .NSSystemClockDidChange, .NSSystemTimeZoneDidChange] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

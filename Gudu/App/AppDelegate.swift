@@ -6,6 +6,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     private var model: AppModel!
     private var overlay: ReminderWindowController!
+    private var preparation: PreparationBubbleController!
     private var mainWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var subscriptions = Set<AnyCancellable>()
@@ -13,6 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     func applicationDidFinishLaunching(_ notification: Notification) {
         model = AppModel()
         overlay = ReminderWindowController(model: model)
+        preparation = PreparationBubbleController()
+        model.onPresentPreparation = { [weak self] minutes in
+            guard let self else { return }
+            self.preparation.present(minutes: minutes, mode: self.model.settings.displayMode)
+        }
+        model.onDismissPreparation = { [weak self] in self?.preparation.dismiss() }
         model.onPresentReminder = { [weak self] preview in self?.overlay.present(preview: preview) }
         model.onDismissReminder = { [weak self] in self?.overlay.dismiss(action: .dismiss) }
         model.onTestVerification = { [weak self] in self?.overlay.present(preview: true, testVerification: true) }
@@ -35,7 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-    func applicationWillTerminate(_ notification: Notification) { overlay?.shutdown() }
+    func applicationWillTerminate(_ notification: Notification) {
+        preparation?.dismiss()
+        overlay?.shutdown()
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showMainWindow()

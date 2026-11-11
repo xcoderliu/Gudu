@@ -14,7 +14,7 @@ struct SettingsView: View {
             }
             Card {
                 VStack(alignment: .leading, spacing: 23) {
-                    SectionHeading(title: "属于你的节奏", subtitle: "设置会自动保存，调整后从新的间隔开始计时。")
+                    SectionHeading(title: "属于你的节奏", subtitle: "设置自动保存；调整间隔、日期或时段后重新计时。")
                     HStack {
                         Text("每隔多久提醒").foregroundStyle(Palette.ink)
                         Spacer()
@@ -38,6 +38,27 @@ struct SettingsView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                    }
+                    Divider().overlay(Palette.line)
+                    SettingsRow(title: "提前接水", detail: "先装满杯子，喝水时就不用临时找水啦。") {
+                        Picker("提前接水", selection: $model.settings.preparationLeadMinutes) {
+                            Text("关闭").tag(0)
+                            ForEach([3, 5, 10], id: \.self) { minutes in
+                                Text("提前 \(minutes) 分钟").tag(minutes)
+                            }
+                        }.labelsHidden().frame(width: 125)
+                    }
+                    HStack(alignment: .top, spacing: 16) {
+                        Text(model.settings.preparationLeadMinutes > 0 && model.settings.intervalMinutes <= model.settings.preparationLeadMinutes
+                             ? "提醒间隔不长于提前时间，本轮不显示接水气泡。"
+                             : model.settings.preparationLeadMinutes == 0
+                             ? "已关闭接水提醒，喝水提醒仍会照常出现。"
+                             : "小气泡停留 15 秒，不响铃、不打断工作；调整不重置喝水倒计时。")
+                            .font(.system(size: 10)).foregroundStyle(Palette.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        Button("预览气泡") { model.previewPreparation() }
+                            .disabled(model.settings.preparationLeadMinutes == 0 || model.isPresenting)
                     }
                     Divider().overlay(Palette.line)
                     weekdayPicker

@@ -63,6 +63,14 @@ Previewing the animation neither records water nor changes the schedule. Confirm
 
 For launch at login, copy the built app to Applications first. The system may require approval in System Settings → General → Login Items.
 
+### Refill before the reminder
+
+Available in source builds; not included in the v0.1.0 prebuilt package.
+
+Settings → “提前接水” offers **off / 3 / 5 / 10 minutes before**, defaulting to 5 minutes, including when upgrading older preferences. A playful bubble appears at the top right of the selected display(s) for 15 seconds, without sound, focus stealing, camera use, or recording water. Changing the lead time preserves the drink deadline. Use “预览气泡” to preview it.
+
+Refill bubbles respect selected days and quiet hours. Missed bubbles are skipped after sleep; catch-up reminders, five-minute snoozes, and “remind now” do not add refill bubbles. If the drink interval is no longer than the lead time, no refill bubble is scheduled. Each normal drink deadline gets at most one bubble. Pausing, logging water, changing the schedule, or showing a fullscreen reminder clears it.
+
 ### Camera verification
 
 Camera verification is enabled for new installs and can be disabled in settings. Try “测试摄像头识别（不记水）” to check your setup. macOS requests permission at the first real reminder or explicit test, never merely on app launch. Verification runs only during a forced reminder or an explicit recognition test; ordinary animation previews never start the camera. Frames remain in local memory and are neither saved nor uploaded.

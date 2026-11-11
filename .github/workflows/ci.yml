@@ -25,6 +25,8 @@ jobs:
         run: swift test
       - name: Reminder recovery integration
         run: ./scripts/check_recovery.sh
+      - name: Refill reminder integration
+        run: ./scripts/check_preparation.sh
       - name: Build macOS app
         run: >-
           xcodebuild -project Gudu.xcodeproj -scheme Gudu

@@ -125,3 +125,9 @@ GuduApp
 - [NSScreen.frame](https://developer.apple.com/documentation/appkit/nsscreen/frame)
 - [NSWindow.CollectionBehavior](https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct)
 - [SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)
+
+## 提前接水气泡
+
+`PreparationReminderPlan` 将普通喝水到期时间映射为 3 / 5 / 10 分钟前的时间点，要求完整提前区间位于有效提醒时段，且提醒间隔长于提前量。`AppModel` 通过原有每秒 Timer 检查是否越过时间点，并按喝水到期时间去重；小于 60 秒的计时延迟可容忍，休眠 / 丢失时钟后的旧气泡不补。补提醒与延后周期不创建接水计划。设置的提前量单独更新准备计划，不重算喝水时间。
+
+`PreparationBubbleController` 使用独立的非激活 `NSPanel`，通过 `ScreenRouter` 选屏、`visibleFrame` 定位右上角，15 秒清理。它不更改 `isPresenting`、不启动摄像头、不申请通知权限、不触发音效和记水；关闭只收起气泡。暂停、正式提醒、动画 / 摄像头预览、系统不可用或屏幕配置变化会清理气泡。
